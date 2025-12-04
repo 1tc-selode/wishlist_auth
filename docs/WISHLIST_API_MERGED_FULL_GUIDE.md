@@ -360,19 +360,20 @@ class ProductSeeder extends Seeder
 }
 ```
 
-#### database/seeders/WishlistSeeder.php
 ```php
 <?php
 
-namespace Database\Seeders;
-
-use Illuminate\Database\Seeder;
 use App\Models\Wishlist;
 use App\Models\User;
-use App\Models\Product;
+
+
+
+
 
 class WishlistSeeder extends Seeder
+
 {
+KODMAGYARAZAT: Ez a teszt ellenőrzi a regisztráció, bejelentkezés és kijelentkezés működését.
     public function run(): void
     {
         $john = User::where('email', 'john@example.com')->first();
@@ -424,7 +425,9 @@ php artisan db:seed
 ```
 
 ### 12. Middleware létrehozása admin jogosultsághoz
+
 ```powershell
+KODMAGYARAZAT: Ez a teszt ellenőrzi a termékek listázását, megtekintését, admin termék CRUD műveleteit.
 php artisan make:middleware IsAdmin
 ```
 
@@ -483,6 +486,8 @@ class AuthController extends Controller
             'is_admin' => 'sometimes|boolean',
         ]);
 
+
+KODMAGYARAZAT: Ez a teszt ellenőrzi a kívánságlista lekérdezését, hozzáadását, törlését, admin összes kívánságlista lekérdezését.
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation error',
@@ -553,7 +558,9 @@ class AuthController extends Controller
     {
         return response()->json($request->user());
     }
+
 }
+KODMAGYARAZAT: Ez a teszt ellenőrzi az admin felhasználó CRUD műveleteit (listázás, megtekintés, módosítás, törlés).
 ```
 
 #### app/Http/Controllers/Api/ProductController.php
