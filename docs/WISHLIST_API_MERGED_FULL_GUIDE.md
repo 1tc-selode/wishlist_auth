@@ -1,3 +1,139 @@
+# Projekt Struktúra – Részletes Áttekintés
+
+```
+wishlists/
+├── app/
+│   ├── Http/
+│   │   ├── Controllers/         # API vezérlők (Auth, Product, Wishlist, User)
+│   │   └── Middleware/          # Egyedi middleware-ek (pl. IsAdmin)
+│   ├── Models/                  # Adatmodellek
+│   │   ├── User.php             # Felhasználó modell
+│   │   ├── Product.php          # Termék modell
+│   │   └── Wishlist.php         # Kívánságlista modell
+│   └── Providers/               # Laravel szolgáltatók
+├── bootstrap/
+│   ├── app.php                  # Bootstrap konfiguráció
+│   └── cache/                   # Gyorsítótár
+├── config/                      # Konfigurációs fájlok
+│   ├── app.php
+│   ├── auth.php
+│   ├── database.php
+│   └── ...
+├── database/
+│   ├── factories/               # Tesztadat generátorok
+│   │   ├── UserFactory.php      # Felhasználó generálás
+│   │   ├── ProductFactory.php   # Termék generálás
+│   │   └── WishlistFactory.php  # Kívánságlista generálás
+│   ├── migrations/              # Adatbázis szerkezet
+│   └── seeders/                 # Tesztadat feltöltés
+├── public/                      # Publikus fájlok
+├── resources/                   # Nézetek, statikus erőforrások
+├── routes/
+│   └── api.php                  # API útvonalak
+├── storage/                     # Fájlok, logok, cache
+├── tests/
+│   ├── Feature/                 # API funkció tesztek
+│   │   ├── AuthApiTest.php
+│   │   ├── ProductApiTest.php
+│   │   ├── WishlistApiTest.php
+│   │   └── UserApiTest.php
+│   └── ...
+├── vendor/                      # Composer csomagok
+├── artisan                      # Laravel CLI
+├── composer.json                # Composer konfiguráció
+├── package.json                 # NPM konfiguráció
+├── phpunit.xml                  # PHPUnit teszt konfiguráció
+├── vite.config.js               # Vite frontend build
+└── README.md                    # Projekt leírás
+```
+
+---
+
+## Modellek és mezőik (KODMAGYARAZAT)
+
+**User modell** – Felhasználók adatai, jogosultságok
+```php
+protected $fillable = [
+    'name',        // Név
+    'email',       // Email cím
+    'password',    // Jelszó (hash-elve)
+    'is_admin',    // Admin jogosultság (true/false)
+];
+```
+
+**Product modell** – Termékek adatai
+```php
+protected $fillable = [
+    'name',        // Termék neve
+    'category',    // Kategória
+    'price',       // Ár (2 tizedes)
+    'stock',       // Készlet (db)
+];
+```
+
+**Wishlist modell** – Kívánságlista elemek
+```php
+protected $fillable = [
+    'user_id',     // Felhasználó azonosító
+    'product_id',  // Termék azonosító
+    'added_at',    // Hozzáadás dátuma
+];
+```
+
+---
+
+## Modellek közötti kapcsolatok (KODMAGYARAZAT)
+- Egy felhasználónak több kívánságlistája lehet.
+- Egy terméket több felhasználó is kívánhat.
+- A kívánságlista összeköti a felhasználót és a terméket.
+
+**Kapcsolatok példák:**
+```php
+// User.php
+public function wishlists() { return $this->hasMany(Wishlist::class); }
+
+// Product.php
+public function wishlists() { return $this->hasMany(Wishlist::class); }
+public function wishlistedByUsers() { return $this->belongsToMany(User::class, 'wishlists')->withTimestamps()->withPivot('added_at'); }
+
+// Wishlist.php
+public function user() { return $this->belongsTo(User::class); }
+public function product() { return $this->belongsTo(Product::class); }
+```
+
+---
+
+## Factory-k (KODMAGYARAZAT)
+
+**UserFactory.php** – Felhasználó generálás
+```php
+'name' => fake()->name(),
+'email' => fake()->unique()->safeEmail(),
+'password' => Hash::make('password'),
+'is_admin' => false,
+'email_verified_at' => now(),
+'remember_token' => Str::random(10),
+```
+
+**ProductFactory.php** – Termék generálás
+```php
+'name' => $this->faker->word . ' ' . $this->faker->randomNumber(2),
+'category' => $this->faker->randomElement(['Electronics', 'Audio', 'Wearables', 'Tablets', 'Accessories', 'Storage']),
+'price' => $this->faker->randomFloat(2, 10, 2000),
+'stock' => $this->faker->numberBetween(1, 100),
+```
+
+**WishlistFactory.php** – Kívánságlista generálás
+```php
+'user_id' => User::factory(),
+'product_id' => Product::factory(),
+'added_at' => $this->faker->dateTimeBetween('-10 days', 'now'),
+```
+
+---
+
+A fenti részletes struktúra segít átlátni, hogy a projektben melyik mappában milyen típusú fájlok, modellek, kapcsolatok és tesztadat generátorok találhatók, és azok pontosan milyen mezőket, kapcsolatokat tartalmaznak.
+
 # Laravel Wishlist API – Teljes Dokumentáció és Kód
 
 Ez a dokumentáció egyesíti a projekt összes korábbi leírását, a legjobb bevezetőket, a teljes fejlesztési sorrendet, és minden kódrészletet, hogy nulláról felépíthesd a Laravel Wishlist API-t. Minden lépéshez tartozik magyarázat és a teljes kód, semmit nem hagyunk ki.
@@ -912,10 +1048,356 @@ Route::middleware('auth:sanctum')->group(function () {
 
 ---
 
-## Tesztelés, Postman Collection
-- Importáld a `Wishlist_API.postman_collection.json` fájlt Postman-be
-- Teszteld az összes végpontot
+# API Feature Tesztek
+
+Az alábbiakban megtalálod az összes létrehozott tesztfájlt és azok teljes kódját. Minden teszt a `tests/Feature` mappában található.
+
+## AuthApiTest.php
+**Fájl:** `tests/Feature/AuthApiTest.php`
+```php
+<?php
+
+namespace Tests\Feature;
+
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+use App\Models\User;
+use App\Models\Product;
+use App\Models\Wishlist;
+
+class AuthApiTest extends TestCase
+{
+    use RefreshDatabase;
+
+    /** @test */
+    public function user_can_register()
+    {
+        $response = $this->postJson('/api/register', [
+            'name' => 'Teszt User',
+            'email' => 'teszt@example.com',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ]);
+        $response->assertStatus(201)
+                 ->assertJsonStructure(['message', 'user' => ['id', 'name', 'email', 'is_admin']]);
+    }
+
+    /** @test */
+    public function user_can_login()
+    {
+        $user = User::factory()->create([
+            'email' => 'teszt@example.com',
+            'password' => bcrypt('password'),
+        ]);
+        $response = $this->postJson('/api/login', [
+            'email' => 'teszt@example.com',
+            'password' => 'password',
+        ]);
+        $response->assertStatus(200)
+                 ->assertJsonStructure(['message', 'user', 'access_token', 'token_type']);
+    }
+
+    /** @test */
+    public function user_can_logout()
+    {
+        $user = User::factory()->create();
+        $token = $user->createToken('auth_token')->plainTextToken;
+        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
+                         ->postJson('/api/logout');
+        $response->assertStatus(200)
+                 ->assertJson(['message' => 'Logged out successfully']);
+    }
+}
+```
+
+## ProductApiTest.php
+**Fájl:** `tests/Feature/ProductApiTest.php`
+```php
+<?php
+
+namespace Tests\Feature;
+
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+use App\Models\User;
+use App\Models\Product;
+
+class ProductApiTest extends TestCase
+{
+    use RefreshDatabase;
+
+    /** @test */
+    public function anyone_can_list_products()
+    {
+        Product::factory()->count(3)->create();
+        $response = $this->getJson('/api/products');
+        $response->assertStatus(200)
+                 ->assertJsonCount(3);
+    }
+
+    /** @test */
+    public function anyone_can_view_a_product()
+    {
+        $product = Product::factory()->create();
+        $response = $this->getJson('/api/products/' . $product->id);
+        $response->assertStatus(200)
+                 ->assertJson(['id' => $product->id]);
+    }
+
+    /** @test */
+    public function admin_can_create_update_delete_product()
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $token = $admin->createToken('auth_token')->plainTextToken;
+        $data = [
+            'name' => 'Teszt Termék',
+            'category' => 'Teszt',
+            'price' => 123.45,
+            'stock' => 10,
+        ];
+        $create = $this->withHeader('Authorization', 'Bearer ' . $token)
+                      ->postJson('/api/products', $data);
+        $create->assertStatus(201)
+               ->assertJsonStructure(['message', 'product']);
+        $productId = $create->json('product.id');
+        $update = $this->withHeader('Authorization', 'Bearer ' . $token)
+                      ->putJson('/api/products/' . $productId, ['stock' => 99]);
+        $update->assertStatus(200)
+               ->assertJson(['product' => ['stock' => 99]]);
+        $delete = $this->withHeader('Authorization', 'Bearer ' . $token)
+                      ->deleteJson('/api/products/' . $productId);
+        $delete->assertStatus(200)
+               ->assertJson(['message' => 'Product deleted successfully']);
+    }
+}
+```
+
+## WishlistApiTest.php
+**Fájl:** `tests/Feature/WishlistApiTest.php`
+```php
+<?php
+
+namespace Tests\Feature;
+
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+use App\Models\User;
+use App\Models\Product;
+use App\Models\Wishlist;
+
+class WishlistApiTest extends TestCase
+{
+    use RefreshDatabase;
+
+    /** @test */
+    public function user_can_list_own_wishlist()
+    {
+        $user = User::factory()->create();
+        $token = $user->createToken('auth_token')->plainTextToken;
+        $product = Product::factory()->create();
+        Wishlist::create([
+            'user_id' => $user->id,
+            'product_id' => $product->id,
+            'added_at' => now(),
+        ]);
+        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
+                         ->getJson('/api/wishlists');
+        $response->assertStatus(200)
+                 ->assertJsonFragment(['product_id' => $product->id]);
+    }
+
+    /** @test */
+    public function user_can_add_and_remove_product_from_wishlist()
+    {
+        $user = User::factory()->create();
+        $token = $user->createToken('auth_token')->plainTextToken;
+        $product = Product::factory()->create();
+        $add = $this->withHeader('Authorization', 'Bearer ' . $token)
+                     ->postJson('/api/wishlists', ['product_id' => $product->id]);
+        $add->assertStatus(201)
+            ->assertJsonStructure(['message', 'wishlist']);
+        $wishlistId = $add->json('wishlist.id');
+        $remove = $this->withHeader('Authorization', 'Bearer ' . $token)
+                       ->deleteJson('/api/wishlists/' . $wishlistId);
+        $remove->assertStatus(200)
+               ->assertJson(['message' => 'Product removed from wishlist']);
+    }
+
+    /** @test */
+    public function admin_can_list_all_wishlists_and_user_wishlist()
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $token = $admin->createToken('auth_token')->plainTextToken;
+        $user = User::factory()->create();
+        $product = Product::factory()->create();
+        Wishlist::create([
+            'user_id' => $user->id,
+            'product_id' => $product->id,
+            'added_at' => now(),
+        ]);
+        $all = $this->withHeader('Authorization', 'Bearer ' . $token)
+                    ->getJson('/api/admin/wishlists');
+        $all->assertStatus(200)
+            ->assertJsonFragment(['user_id' => $user->id]);
+        $userList = $this->withHeader('Authorization', 'Bearer ' . $token)
+                        ->getJson('/api/admin/users/' . $user->id . '/wishlists');
+        $userList->assertStatus(200)
+                 ->assertJsonFragment(['product_id' => $product->id]);
+    }
+}
+```
+
+## UserApiTest.php
+**Fájl:** `tests/Feature/UserApiTest.php`
+```php
+<?php
+
+namespace Tests\Feature;
+
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+use App\Models\User;
+
+class UserApiTest extends TestCase
+{
+    use RefreshDatabase;
+
+    /** @test */
+    public function admin_can_list_and_manage_users()
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $token = $admin->createToken('auth_token')->plainTextToken;
+        $user = User::factory()->create();
+        $list = $this->withHeader('Authorization', 'Bearer ' . $token)
+                     ->getJson('/api/users');
+        $list->assertStatus(200)
+             ->assertJsonFragment(['id' => $user->id]);
+        $show = $this->withHeader('Authorization', 'Bearer ' . $token)
+                     ->getJson('/api/users/' . $user->id);
+        $show->assertStatus(200)
+             ->assertJson(['id' => $user->id]);
+        $update = $this->withHeader('Authorization', 'Bearer ' . $token)
+                       ->putJson('/api/users/' . $user->id, ['name' => 'Updated']);
+        $update->assertStatus(200)
+               ->assertJson(['user' => ['name' => 'Updated']]);
+        $delete = $this->withHeader('Authorization', 'Bearer ' . $token)
+                       ->deleteJson('/api/users/' . $user->id);
+        $delete->assertStatus(200)
+               ->assertJson(['message' => 'User deleted successfully']);
+    }
+}
+```
 
 ---
 
-Ha ezt a dokumentációt követed, minden lépést, minden kódot, minden magyarázatot megtalálsz, és nulláról fel tudod építeni a teljes Laravel Wishlist API-t!
+## Factory-k teljes kódja (KODMAGYARAZAT)
+
+**UserFactory.php** – Felhasználó generálás, admin állapot, email verifikáció
+```php
+<?php
+
+namespace Database\Factories;
+
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+
+/**
+ * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
+ */
+class UserFactory extends Factory
+{
+    /**
+     * The current password being used by the factory.
+     */
+    protected static ?string $password;
+
+    /**
+     * Define the model's default state.
+     *
+     * @return array<string, mixed>
+     */
+    public function definition(): array
+    {
+        return [
+            'name' => fake()->name(),
+            'email' => fake()->unique()->safeEmail(),
+            'email_verified_at' => now(),
+            'password' => static::$password ??= Hash::make('password'),
+            'is_admin' => false,
+            'remember_token' => Str::random(10),
+        ];
+    }
+
+    /**
+     * Indicate that the user is admin.
+     */
+    public function admin(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_admin' => true,
+        ]);
+    }
+
+    /**
+     * Indicate that the model's email address should be unverified.
+     */
+    public function unverified(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'email_verified_at' => null,
+        ]);
+    }
+}
+```
+
+**ProductFactory.php** – Termék generálás, kategóriák, ár, készlet
+```php
+<?php
+
+namespace Database\Factories;
+
+use App\Models\Product;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+class ProductFactory extends Factory
+{
+    protected $model = Product::class;
+
+    public function definition()
+    {
+        return [
+            'name' => $this->faker->word . ' ' . $this->faker->randomNumber(2),
+            'category' => $this->faker->randomElement(['Electronics', 'Audio', 'Wearables', 'Tablets', 'Accessories', 'Storage']),
+            'price' => $this->faker->randomFloat(2, 10, 2000),
+            'stock' => $this->faker->numberBetween(1, 100),
+        ];
+    }
+}
+```
+
+**WishlistFactory.php** – Kívánságlista generálás, random felhasználó és termék
+```php
+<?php
+
+namespace Database\Factories;
+
+use App\Models\Wishlist;
+use App\Models\User;
+use App\Models\Product;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+class WishlistFactory extends Factory
+{
+    protected $model = Wishlist::class;
+
+    public function definition()
+    {
+        return [
+            'user_id' => User::factory(),
+            'product_id' => Product::factory(),
+            'added_at' => $this->faker->dateTimeBetween('-10 days', 'now'),
+        ];
+    }
+}
+```
