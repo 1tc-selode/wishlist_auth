@@ -1,17 +1,17 @@
 
 
+
 # Laravel Wishlist API – Teljes Ultimate Guide
 
-Ez a dokumentáció lépésről lépésre, minden parancsot, minden kódrészletet, minden magyarázatot tartalmaz, hogy nulláról felépítsd a teljes Laravel Wishlist API-t. Minden kód előtt magyar magyarázat (KODMAGYARAZAT) található!
+Ez a dokumentáció lépésről lépésre, minden parancsot, minden kódrészletet, minden magyarázatot tartalmaz, hogy nulláról felépítsd a teljes Laravel Wishlist API-t. Minden lépés után azonnal a teljes kód következik, a magyarázatok normál szöveges formában, a fejlesztési sorrendben.
 
 ---
 
 ## 1. Composer telepítése
 
-**KODMAGYARAZAT:** A Composer a PHP csomagkezelője, szükséges a Laravel telepítéséhez.
+A Composer a PHP csomagkezelője, szükséges a Laravel telepítéséhez.
 
 ```cmd
-# Windows parancssorban:
 php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
 php composer-setup.php
 php -r "unlink('composer-setup.php');"
@@ -21,7 +21,7 @@ php -r "unlink('composer-setup.php');"
 
 ## 2. Laravel projekt létrehozása
 
-**KODMAGYARAZAT:** Ez létrehozza a Laravel keretrendszert a kívánt mappában.
+Ez létrehozza a Laravel keretrendszert a kívánt mappában.
 
 ```cmd
 composer create-project laravel/laravel wishlists
@@ -31,7 +31,7 @@ composer create-project laravel/laravel wishlists
 
 ## 3. Függőségek telepítése
 
-**KODMAGYARAZAT:** A Laravel Sanctum csomag az API tokenes autentikációhoz kell.
+A Laravel Sanctum csomag az API tokenes autentikációhoz kell.
 
 ```cmd
 cd wishlists
@@ -44,9 +44,9 @@ php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"
 
 ## 4. .env beállítása
 
-**KODMAGYARAZAT:** Az adatbázis kapcsolatot itt állítod be. Használd a saját MySQL adataidat.
+Az adatbázis kapcsolatot itt állítod be. Használd a saját MySQL adataidat.
 
-```
+```env
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
@@ -59,7 +59,7 @@ DB_PASSWORD=
 
 ## 5. Adatbázis létrehozása
 
-**KODMAGYARAZAT:** Hozz létre egy új adatbázist a phpMyAdmin-ban vagy MySQL-ben.
+Hozz létre egy új adatbázist a phpMyAdmin-ban vagy MySQL-ben.
 
 - Adatbázis neve: `wishlists`
 - Kódolás: `utf8mb4_unicode_ci`
@@ -68,7 +68,7 @@ DB_PASSWORD=
 
 ## 6. Modellek és migrációk létrehozása
 
-**KODMAGYARAZAT:** A modellek az adatbázis táblákat írják le, a migrációk a táblák szerkezetét.
+A modellek az adatbázis táblákat írják le, a migrációk a táblák szerkezetét.
 
 ```cmd
 php artisan make:model Product -m
@@ -79,7 +79,7 @@ php artisan make:model Wishlist -m
 
 ## 7. Migrációk kitöltése
 
-**KODMAGYARAZAT:** Ezek a migrációs fájlok hozzák létre a users, products, wishlists táblákat.
+Ezek a migrációs fájlok hozzák létre a users, products, wishlists táblákat.
 
 ### database/migrations/xxxx_xx_xx_xxxxxx_create_users_table.php
 ```php
@@ -123,7 +123,7 @@ Schema::create('wishlists', function (Blueprint $table) {
 
 ## 8. Migrációk futtatása
 
-**KODMAGYARAZAT:** Ez a parancs létrehozza az adatbázis táblákat.
+Ez a parancs létrehozza az adatbázis táblákat.
 
 ```cmd
 php artisan migrate
@@ -133,7 +133,7 @@ php artisan migrate
 
 ## 9. Modellek kitöltése
 
-**KODMAGYARAZAT:** A modellekben megadod, milyen mezők tölthetők ki, és milyen kapcsolatok vannak.
+A modellekben megadod, milyen mezők tölthetők ki, és milyen kapcsolatok vannak.
 
 ### app/Models/Product.php
 ```php
@@ -169,7 +169,7 @@ class User extends Authenticatable {
 
 ## 10. Seederek létrehozása
 
-**KODMAGYARAZAT:** A seederek tesztadatokat töltenek az adatbázisba.
+A seederek tesztadatokat töltenek az adatbázisba.
 
 ```cmd
 php artisan make:seeder UserSeeder
@@ -181,7 +181,7 @@ php artisan make:seeder WishlistSeeder
 
 ## 11. Seederek kitöltése
 
-**KODMAGYARAZAT:** Ezek a fájlok hozzák létre az admin, user, termék és kívánságlista tesztadatokat.
+Ezek a fájlok hozzák létre az admin, user, termék és kívánságlista tesztadatokat.
 
 ### database/seeders/UserSeeder.php
 ```php
@@ -239,7 +239,7 @@ class DatabaseSeeder extends Seeder {
 
 ## 12. Seederek futtatása
 
-**KODMAGYARAZAT:** Ez a parancs feltölti az adatbázist tesztadatokkal.
+Ez a parancs feltölti az adatbázist tesztadatokkal.
 
 ```cmd
 php artisan db:seed
@@ -249,7 +249,7 @@ php artisan db:seed
 
 ## 13. Middleware létrehozása admin jogosultsághoz
 
-**KODMAGYARAZAT:** Az IsAdmin middleware csak admin felhasználóknak engedélyez bizonyos műveleteket.
+Az IsAdmin middleware csak admin felhasználóknak engedélyez bizonyos műveleteket.
 
 ```cmd
 php artisan make:middleware IsAdmin
@@ -271,7 +271,7 @@ class IsAdmin {
 
 ## 14. Kontrollerek létrehozása
 
-**KODMAGYARAZAT:** A kontrollerek kezelik az API végpontokat és az üzleti logikát.
+A kontrollerek kezelik az API végpontokat és az üzleti logikát.
 
 ```cmd
 php artisan make:controller Api/AuthController
@@ -284,7 +284,7 @@ php artisan make:controller Api/UserController
 
 ## 15. Kontrollerek kitöltése
 
-**KODMAGYARAZAT:** Az AuthController kezeli a regisztrációt, bejelentkezést, kijelentkezést, profil lekérést.
+Az AuthController kezeli a regisztrációt, bejelentkezést, kijelentkezést, profil lekérést.
 
 ### app/Http/Controllers/Api/AuthController.php
 ```php
@@ -303,8 +303,6 @@ class AuthController extends Controller {
 	}
 }
 ```
-
-**KODMAGYARAZAT:** A ProductController kezeli a termékek CRUD műveleteit.
 
 ### app/Http/Controllers/Api/ProductController.php
 ```php
@@ -326,8 +324,6 @@ class ProductController extends Controller {
 	}
 }
 ```
-
-**KODMAGYARAZAT:** A WishlistController kezeli a kívánságlista CRUD műveleteit.
 
 ### app/Http/Controllers/Api/WishlistController.php
 ```php
@@ -353,8 +349,6 @@ class WishlistController extends Controller {
 }
 ```
 
-**KODMAGYARAZAT:** A UserController admin funkciókat kezel.
-
 ### app/Http/Controllers/Api/UserController.php
 ```php
 class UserController extends Controller {
@@ -377,7 +371,7 @@ class UserController extends Controller {
 
 ## 16. Route-ok beállítása
 
-**KODMAGYARAZAT:** Az API végpontokat a routes/api.php fájlban definiálod.
+Az API végpontokat a routes/api.php fájlban definiálod.
 
 ### routes/api.php
 ```php
@@ -410,7 +404,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
 ## 17. Laravel kulcs generálása
 
-**KODMAGYARAZAT:** A kulcs az alkalmazás titkosításához kell.
+A kulcs az alkalmazás titkosításához kell.
 
 ```cmd
 php artisan key:generate
@@ -420,7 +414,7 @@ php artisan key:generate
 
 ## 18. Szerver indítása
 
-**KODMAGYARAZAT:** Ez elindítja a Laravel fejlesztői szervert.
+Ez elindítja a Laravel fejlesztői szervert.
 
 ```cmd
 php artisan serve
@@ -430,7 +424,7 @@ php artisan serve
 
 ## 19. Postman Collection importálása
 
-**KODMAGYARAZAT:** A Postman-ben tesztelheted az API végpontokat.
+A Postman-ben tesztelheted az API végpontokat.
 
 - Fájl: `Wishlist_API.postman_collection.json`
 - Postman → Import → File → válaszd ki a fájlt
@@ -439,7 +433,7 @@ php artisan serve
 
 ## 20. Tesztelés, API végpontok
 
-**KODMAGYARAZAT:** Az API végpontok részletes leírását lásd az API_TEST_ENDPOINTS.md fájlban.
+Az API végpontok részletes leírását lásd az API_TEST_ENDPOINTS.md fájlban.
 
 ---
 
