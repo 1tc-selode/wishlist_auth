@@ -46,124 +46,100 @@
 					"name": "Login Admin",
 					"event": [
 						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"    var jsonData = pm.response.json();",
-									"    pm.collectionVariables.set(\"token\", jsonData.access_token);",
-									"}"
+							"name": "Get My Wishlists",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
 								],
-								"type": "text/javascript"
+								"url": {
+									"raw": "{{base_url}}/wishlists",
+									"host": ["{{base_url}}"],
+									"path": ["wishlists"]
+								}
 							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"password\"\n}"
 						},
-						"url": {
-							"raw": "{{base_url}}/login",
-							"host": ["{{base_url}}"],
-							"path": ["login"]
-						}
-					}
-				},
-				{
-					"name": "Login User",
-					"event": [
 						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"    var jsonData = pm.response.json();",
-									"    pm.collectionVariables.set(\"token\", jsonData.access_token);",
-									"}"
+							"name": "Add Product to Wishlist",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
 								],
-								"type": "text/javascript"
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"product_id\": 1\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/wishlists",
+									"host": ["{{base_url}}"],
+									"path": ["wishlists"]
+								}
 							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"password\"\n}"
 						},
-						"url": {
-							"raw": "{{base_url}}/login",
-							"host": ["{{base_url}}"],
-							"path": ["login"]
-						}
-					}
-				},
-				{
-					"name": "Get Profile (Me)",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
+						{
+							"name": "Remove from Wishlist",
+							"request": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/wishlists/1",
+									"host": ["{{base_url}}"],
+									"path": ["wishlists", "1"]
+								}
 							}
-						],
-						"url": {
-							"raw": "{{base_url}}/me",
-							"host": ["{{base_url}}"],
-							"path": ["me"]
-						}
-					}
-				},
-				{
-					"name": "Logout",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
+						},
+						{
+							"name": "Get All Wishlists (Admin)",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/admin/wishlists",
+									"host": ["{{base_url}}"],
+									"path": ["admin", "wishlists"]
+								}
 							}
-						],
-						"url": {
-							"raw": "{{base_url}}/logout",
-							"host": ["{{base_url}}"],
-							"path": ["logout"]
+						},
+						{
+							"name": "Get User's Wishlist (Admin)",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/admin/users/2/wishlists",
+									"host": ["{{base_url}}"],
+									"path": ["admin", "users", "2", "wishlists"]
+								}
+							}
 						}
-					}
-				}
-			]
-		},
-		{
-			"name": "Products",
-			"item": [
-				{
-					"name": "Get All Products",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/products",
-							"host": ["{{base_url}}"],
-							"path": ["products"]
 						}
-					}
-				},
-				{
+					]
 					"name": "Get Products by Category",
 					"request": {
 						"method": "GET",
@@ -180,7 +156,7 @@
 							]
 						}
 					}
-				},
+						},
 				{
 					"name": "Search Products",
 					"request": {
@@ -393,6 +369,7 @@
 						}
 					}
 				}
+				},
 			]
 		},
 		{
