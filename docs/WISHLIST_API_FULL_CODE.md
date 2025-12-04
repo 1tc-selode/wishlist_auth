@@ -317,22 +317,392 @@ Route::middleware('auth:sanctum')->group(function () {
 
 ### app/Http/Controllers/Api/AuthController.php
 ```php
-...kód teljes egészében...
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
+
+class AuthController extends Controller
+{
+    public function register(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:8|confirmed',
+            'is_admin' => 'sometimes|boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation error',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'is_admin' => $request->input('is_admin', false),
+        ]);
+
+        return response()->json([
+            'message' => 'User registered successfully. Please login.',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'is_admin' => $user->is_admin,
+            ],
+        ], 201);
+    }
+
+    public function login(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
+            'password' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation error',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'message' => 'Invalid credentials'
+            ], 401);
+        }
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'message' => 'Login successful',
+            'user' => $user,
+            'access_token' => $token,
+            'token_type' => 'Bearer',
+        ]);
+    }
+
+    public function logout(Request $request)
+    {
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'message' => 'Logged out successfully'
+        ]);
+    }
+
+    public function me(Request $request)
+    {
+        return response()->json($request->user());
+    }
+}
 ```
 
 ### app/Http/Controllers/Api/ProductController.php
 ```php
-...kód teljes egészében...
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Product;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+
+class ProductController extends Controller
+{
+    public function index(Request $request)
+    {
+        $products = Product::all();
+        return response()->json($products);
+    }
+
+    public function store(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'category' => 'required|string|max:255',
+            'price' => 'required|numeric|min:0',
+            'stock' => 'required|integer|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation error',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $product = Product::create($request->all());
+
+        return response()->json([
+            'message' => 'Product created successfully',
+            'product' => $product
+        ], 201);
+    }
+
+    public function show($id)
+    {
+        $product = Product::find($id);
+
+        if (!$product) {
+            return response()->json([
+                'message' => 'Product not found'
+            ], 404);
+        }
+
+        return response()->json($product);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $product = Product::find($id);
+
+        if (!$product) {
+            return response()->json([
+                'message' => 'Product not found'
+            ], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'sometimes|string|max:255',
+            'category' => 'sometimes|string|max:255',
+            'price' => 'sometimes|numeric|min:0',
+            'stock' => 'sometimes|integer|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation error',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $product->update($request->all());
+
+        return response()->json([
+            'message' => 'Product updated successfully',
+            'product' => $product
+        ]);
+    }
+
+    public function destroy($id)
+    {
+        $product = Product::find($id);
+
+        if (!$product) {
+            return response()->json([
+                'message' => 'Product not found'
+            ], 404);
+        }
+
+        $product->delete();
+
+        return response()->json([
+            'message' => 'Product deleted successfully'
+        ]);
+    }
+}
 ```
 
 ### app/Http/Controllers/Api/WishlistController.php
 ```php
-...kód teljes egészében...
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Wishlist;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+
+class WishlistController extends Controller
+{
+    public function index(Request $request)
+    {
+        $user = $request->user();
+        $wishlists = Wishlist::where('user_id', $user->id)
+            ->with('product')
+            ->get();
+        return response()->json($wishlists);
+    }
+
+    public function indexAll()
+    {
+        $wishlists = Wishlist::with(['user', 'product'])->get();
+        return response()->json($wishlists);
+    }
+
+    public function store(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'product_id' => 'required|exists:products,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation error',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $user = $request->user();
+        $exists = Wishlist::where('user_id', $user->id)
+            ->where('product_id', $request->product_id)
+            ->exists();
+        if ($exists) {
+            return response()->json([
+                'message' => 'Product already in wishlist'
+            ], 409);
+        }
+        $wishlist = Wishlist::create([
+            'user_id' => $user->id,
+            'product_id' => $request->product_id,
+            'added_at' => now(),
+        ]);
+        $wishlist->load('product');
+        return response()->json([
+            'message' => 'Product added to wishlist',
+            'wishlist' => $wishlist
+        ], 201);
+    }
+
+    public function show(Request $request, $id)
+    {
+        $user = $request->user();
+        $wishlist = Wishlist::with('product')->find($id);
+        if (!$wishlist) {
+            return response()->json([
+                'message' => 'Wishlist item not found'
+            ], 404);
+        }
+        if ($wishlist->user_id !== $user->id && !$user->is_admin) {
+            return response()->json([
+                'message' => 'Unauthorized'
+            ], 403);
+        }
+        return response()->json($wishlist);
+    }
+
+    public function destroy(Request $request, $id)
+    {
+        $user = $request->user();
+        $wishlist = Wishlist::find($id);
+        if (!$wishlist) {
+            return response()->json([
+                'message' => 'Wishlist item not found'
+            ], 404);
+        }
+        if ($wishlist->user_id !== $user->id && !$user->is_admin) {
+            return response()->json([
+                'message' => 'Unauthorized'
+            ], 403);
+        }
+        $wishlist->delete();
+        return response()->json([
+            'message' => 'Product removed from wishlist'
+        ]);
+    }
+
+    public function getUserWishlist($userId)
+    {
+        $wishlists = Wishlist::where('user_id', $userId)
+            ->with('product')
+            ->get();
+        return response()->json($wishlists);
+    }
+}
 ```
 
 ### app/Http/Controllers/Api/UserController.php
 ```php
-...kód teljes egészében...
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
+
+class UserController extends Controller
+{
+    public function index()
+    {
+        $users = User::all();
+        return response()->json($users);
+    }
+
+    public function show($id)
+    {
+        $user = User::find($id);
+        if (!$user) {
+            return response()->json([
+                'message' => 'User not found'
+            ], 404);
+        }
+        return response()->json($user);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $user = User::find($id);
+        if (!$user) {
+            return response()->json([
+                'message' => 'User not found'
+            ], 404);
+        }
+        $validator = Validator::make($request->all(), [
+            'name' => 'sometimes|string|max:255',
+            'email' => 'sometimes|string|email|max:255|unique:users,email,' . $id,
+            'password' => 'sometimes|string|min:8',
+            'is_admin' => 'sometimes|boolean',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation error',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+        $data = $request->only(['name', 'email', 'is_admin']);
+        if ($request->has('password')) {
+            $data['password'] = Hash::make($request->password);
+        }
+        $user->update($data);
+        return response()->json([
+            'message' => 'User updated successfully',
+            'user' => $user
+        ]);
+    }
+
+    public function destroy($id)
+    {
+        $user = User::find($id);
+        if (!$user) {
+            return response()->json([
+                'message' => 'User not found'
+            ], 404);
+        }
+        $user->delete();
+        return response()->json([
+            'message' => 'User deleted successfully'
+        ]);
+    }
+}
 ```
 
 ---
@@ -341,22 +711,224 @@ Route::middleware('auth:sanctum')->group(function () {
 
 ### database/seeders/UserSeeder.php
 ```php
-...kód teljes egészében...
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use App\Models\User;
+use Illuminate\Support\Facades\Hash;
+
+class UserSeeder extends Seeder
+{
+    public function run(): void
+    {
+        // Admin user
+        User::create([
+            'name' => 'Admin User',
+            'email' => 'admin@example.com',
+            'password' => Hash::make('password'),
+            'is_admin' => true,
+        ]);
+
+        // Normal users
+        User::create([
+            'name' => 'John Doe',
+            'email' => 'john@example.com',
+            'password' => Hash::make('password'),
+            'is_admin' => false,
+        ]);
+
+        User::create([
+            'name' => 'Jane Smith',
+            'email' => 'jane@example.com',
+            'password' => Hash::make('password'),
+            'is_admin' => false,
+        ]);
+    }
+}
 ```
 
 ### database/seeders/ProductSeeder.php
 ```php
-...kód teljes egészében...
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use App\Models\Product;
+
+class ProductSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $products = [
+            [
+                'name' => 'Laptop Dell XPS 15',
+                'category' => 'Electronics',
+                'price' => 1299.99,
+                'stock' => 15,
+            ],
+            [
+                'name' => 'iPhone 15 Pro',
+                'category' => 'Electronics',
+                'price' => 999.99,
+                'stock' => 25,
+            ],
+            [
+                'name' => 'Samsung Galaxy S24',
+                'category' => 'Electronics',
+                'price' => 899.99,
+                'stock' => 30,
+            ],
+            [
+                'name' => 'Sony WH-1000XM5',
+                'category' => 'Audio',
+                'price' => 349.99,
+                'stock' => 50,
+            ],
+            [
+                'name' => 'Apple Watch Series 9',
+                'category' => 'Wearables',
+                'price' => 399.99,
+                'stock' => 40,
+            ],
+            [
+                'name' => 'iPad Air',
+                'category' => 'Tablets',
+                'price' => 599.99,
+                'stock' => 20,
+            ],
+            [
+                'name' => 'Mechanical Keyboard',
+                'category' => 'Accessories',
+                'price' => 129.99,
+                'stock' => 60,
+            ],
+            [
+                'name' => 'Gaming Mouse Logitech',
+                'category' => 'Accessories',
+                'price' => 79.99,
+                'stock' => 100,
+            ],
+            [
+                'name' => '4K Monitor 27"',
+                'category' => 'Electronics',
+                'price' => 449.99,
+                'stock' => 12,
+            ],
+            [
+                'name' => 'External SSD 1TB',
+                'category' => 'Storage',
+                'price' => 99.99,
+                'stock' => 75,
+            ],
+        ];
+
+        foreach ($products as $product) {
+            Product::create($product);
+        }
+    }
+}
 ```
 
 ### database/seeders/WishlistSeeder.php
 ```php
-...kód teljes egészében...
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use App\Models\Wishlist;
+use App\Models\User;
+use App\Models\Product;
+
+class WishlistSeeder extends Seeder
+{
+    public function run(): void
+    {
+        // John (user_id: 2) kedvencei
+        $john = User::where('email', 'john@example.com')->first();
+        if ($john) {
+            Wishlist::create([
+                'user_id' => $john->id,
+                'product_id' => 1,
+                'added_at' => now()->subDays(5),
+            ]);
+            Wishlist::create([
+                'user_id' => $john->id,
+                'product_id' => 2,
+                'added_at' => now()->subDays(3),
+            ]);
+            Wishlist::create([
+                'user_id' => $john->id,
+                'product_id' => 4,
+                'added_at' => now()->subDays(1),
+            ]);
+            Wishlist::create([
+                'user_id' => $john->id,
+                'product_id' => 7,
+                'added_at' => now(),
+            ]);
+        }
+        $jane = User::where('email', 'jane@example.com')->first();
+        if ($jane) {
+            Wishlist::create([
+                'user_id' => $jane->id,
+                'product_id' => 5,
+                'added_at' => now()->subDays(7),
+            ]);
+            Wishlist::create([
+                'user_id' => $jane->id,
+                'product_id' => 6,
+                'added_at' => now()->subDays(4),
+            ]);
+            Wishlist::create([
+                'user_id' => $jane->id,
+                'product_id' => 9,
+                'added_at' => now()->subDays(2),
+            ]);
+            Wishlist::create([
+                'user_id' => $jane->id,
+                'product_id' => 3,
+                'added_at' => now()->subHours(12),
+            ]);
+            Wishlist::create([
+                'user_id' => $jane->id,
+                'product_id' => 10,
+                'added_at' => now()->subHours(3),
+            ]);
+        }
+        echo "Wishlist seeder completed successfully!\n";
+        echo "- John has " . ($john ? $john->wishlists->count() : 0) . " items in wishlist\n";
+        echo "- Jane has " . ($jane ? $jane->wishlists->count() : 0) . " items in wishlist\n";
+    }
+}
 ```
 
 ### database/seeders/DatabaseSeeder.php
 ```php
-...kód teljes egészében...
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\User;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Database\Seeder;
+
+class DatabaseSeeder extends Seeder
+{
+    use WithoutModelEvents;
+
+    public function run(): void
+    {
+        $this->call([
+            UserSeeder::class,
+            ProductSeeder::class,
+            WishlistSeeder::class,
+        ]);
+    }
+}
 ```
 
 ---
