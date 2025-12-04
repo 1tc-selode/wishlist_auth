@@ -268,18 +268,22 @@ Az alap URL: http://localhost:8000 vagy http://localhost/wishlists/public
 ## 4. Kontrollerek teljes kódja
 
 ### app/Http/Controllers/Api/AuthController.php
+**Felhasználók regisztrációja, bejelentkezése, kijelentkezése, saját profil lekérése. Token kezelése a login/logout során.**
 ```php
 ... (teljes kód, lásd WISHLIST_API_FULL_CODE.md) ...
 ```
 ### app/Http/Controllers/Api/ProductController.php
+**Termékek CRUD műveletei: listázás, létrehozás, módosítás, törlés. Csak admin hozhat létre/módosíthat/törölhet.**
 ```php
 ... (teljes kód, lásd WISHLIST_API_FULL_CODE.md) ...
 ```
 ### app/Http/Controllers/Api/WishlistController.php
+**Kívánságlista CRUD: saját kívánságlista lekérése, termék hozzáadása, törlése, adminként minden kívánságlista lekérése.**
 ```php
 ... (teljes kód, lásd WISHLIST_API_FULL_CODE.md) ...
 ```
 ### app/Http/Controllers/Api/UserController.php
+**Admin funkciók: felhasználók listázása, módosítása, törlése.**
 ```php
 ... (teljes kód, lásd WISHLIST_API_FULL_CODE.md) ...
 ```
@@ -289,18 +293,22 @@ Az alap URL: http://localhost:8000 vagy http://localhost/wishlists/public
 ## 5. Seederek teljes kódja
 
 ### database/seeders/UserSeeder.php
+**Teszt felhasználók (admin és két user) létrehozása az adatbázisban.**
 ```php
 ... (teljes kód, lásd WISHLIST_API_FULL_CODE.md) ...
 ```
 ### database/seeders/ProductSeeder.php
+**Teszt termékek létrehozása az adatbázisban.**
 ```php
 ... (teljes kód, lásd WISHLIST_API_FULL_CODE.md) ...
 ```
 ### database/seeders/WishlistSeeder.php
+**Teszt kívánságlista adatok: John és Jane kedvenc termékei.**
 ```php
 ... (teljes kód, lásd WISHLIST_API_FULL_CODE.md) ...
 ```
 ### database/seeders/DatabaseSeeder.php
+**A fenti seederek futtatása egy parancsból.**
 ```php
 ... (teljes kód, lásd WISHLIST_API_FULL_CODE.md) ...
 ```
