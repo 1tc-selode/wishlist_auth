@@ -124,8 +124,6 @@ DB_PORT=3306
 DB_DATABASE=wishlists
 DB_USERNAME=root
 DB_PASSWORD=
-
-APP_TIMEZONE=Europe/Budapest
 ```
 
 ### 3. Sanctum Telepítése
@@ -142,7 +140,7 @@ php artisan install:api
 php artisan make:middleware IsAdmin
 ```
 
-### 5. Első Teszt (tesztútvonalak már léteznek)
+### 5. Első Teszt
 
 ```powershell
 # Laravel szerver indítása
@@ -156,18 +154,19 @@ php artisan serve
 
 ## II. Modul - Adatbázis és Modellek
 
-### 1. Modellek és Migrációk (Már léteznek a projektben)
-
-A projektben már léteznek a szükséges modellek és migrációk:
+### 1. Modellek és Migrációk Létrehozása
 
 ```powershell
-# Ezek a modellek már léteznek:
-# - User.php (felhasználók)
-# - Product.php (termékek) 
-# - Wishlist.php (kívánságlista)
+# Product modell és migráció létrehozása
+php artisan make:model Product -m
+
+# Wishlist modell és migráció létrehozása
+php artisan make:model Wishlist -m
 ```
 
-### 2. Létező Migrációk
+**Megjegyzés:** A User modell már létezik a Laravel alaptelepítésében.
+
+### 2. Migrációk Konfigurálása
 
 #### users tábla (0001_01_01_000000_create_users_table.php)
 
@@ -280,7 +279,7 @@ return new class extends Migration
 };
 ```
 
-### 3. Létező Modell Fájlok
+### 3. Modell Fájlok Konfigurálása
 
 #### app/Models/User.php
 
@@ -437,9 +436,20 @@ php artisan migrate
 
 ## III. Modul - Seeding (Tesztadatok)
 
-A projektben már léteznek a factory-k és seederek. A tesztadatok feltöltése:
+### 1. Factory-k és Seederek Létrehozása
 
-### 1. Létező Seederek
+```powershell
+# Factory-k létrehozása
+php artisan make:factory ProductFactory
+php artisan make:factory WishlistFactory
+
+# Seederek létrehozása
+php artisan make:seeder UserSeeder
+php artisan make:seeder ProductSeeder
+php artisan make:seeder WishlistSeeder
+```
+
+### 2. Seederek Konfigurálása
 
 #### database/seeders/UserSeeder.php
 
@@ -563,31 +573,25 @@ class DatabaseSeeder extends Seeder
 }
 ```
 
-### 2. Seeding Futtatása
+### 3. Seeding Futtatása
 
 ```powershell
 php artisan db:seed
 ```
 
-### 3. Factory-k (Léteznek)
-
-A projektben már léteznek a factory-k a tesztadatok generálásához:
-- `UserFactory.php` - Felhasználók generálása
-- `ProductFactory.php` - Termékek generálása  
-- `WishlistFactory.php` - Kívánságlista bejegyzések generálása
-
 ---
 
 ## IV. Modul - Controller-ek és API Végpontok
 
-A projektben már léteznek az API controller-ek az `app/Http/Controllers/Api/` mappában:
+### 1. Controller-ek Létrehozása
 
-### 1. Létező Controller-ek
-
-- `AuthController.php` - Autentikáció (regisztráció, bejelentkezés, kijelentkezés)
-- `ProductController.php` - Termékek kezelése
-- `UserController.php` - Felhasználók kezelése (admin funkciók)
-- `WishlistController.php` - Kívánságlista kezelése
+```powershell
+# API controller-ek létrehozása
+php artisan make:controller Api/AuthController
+php artisan make:controller Api/ProductController
+php artisan make:controller Api/UserController
+php artisan make:controller Api/WishlistController
+```
 
 ### 2. AuthController Implementálása
 
@@ -1466,14 +1470,15 @@ Adott felhasználó kívánságlistája (csak admin).
 
 ## VI. Tesztelés
 
-A projektben már léteznek a Feature tesztek a `tests/Feature/` mappában:
+### 1. Teszt Fájlok Létrehozása
 
-### 1. Létező Teszt Fájlok
-
-- `AuthApiTest.php` - Autentikációs tesztek
-- `ProductApiTest.php` - Termék API tesztek  
-- `UserApiTest.php` - Felhasználó API tesztek
-- `WishlistApiTest.php` - Kívánságlista API tesztek
+```powershell
+# Feature tesztek létrehozása
+php artisan make:test AuthApiTest
+php artisan make:test ProductApiTest
+php artisan make:test UserApiTest
+php artisan make:test WishlistApiTest
+```
 
 ### 2. Tesztek Futtatása
 
