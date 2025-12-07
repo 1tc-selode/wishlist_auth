@@ -140,6 +140,79 @@ php artisan install:api
 php artisan make:middleware IsAdmin
 ```
 
+#### app/Http/Middleware/IsAdmin.php
+
+```php
+<?php
+
+namespace App\Http\Middleware;
+
+// Importáljuk a szükséges osztályokat
+use Closure;                              // Closure típus (middleware következő lépése)
+use Illuminate\Http\Request;             // HTTP kérés kezelése
+use Symfony\Component\HttpFoundation\Response;  // HTTP válasz konstansok
+
+/**
+ * IsAdmin Middleware - Admin jogosultság ellenőrzése
+ * Ez a middleware ellenőrzi, hogy a bejelentkezett felhasználó admin-e
+ */
+class IsAdmin
+{
+    /**
+     * Bejövő kérés kezelése
+     * 
+     * @param Request $request - HTTP kérés objektum
+     * @param Closure $next - Következő middleware vagy controller
+     * @return Response - HTTP válasz
+     */
+    public function handle(Request $request, Closure $next): Response
+    {
+        // Ellenőrizzük, hogy a felhasználó be van-e jelentkezve ÉS admin-e
+        // $request->user() - Sanctum által autentikált felhasználó
+        // is_admin - boolean mező a users táblában
+        
+        if (!$request->user() || !$request->user()->is_admin) {
+            // Ha nincs bejelentkezve VAGY nem admin
+            // -> 403 Forbidden válasz JSON üzenettel
+            return response()->json([
+                'message' => 'This action is unauthorized.'  // Jogosulatlan művelet
+            ], 403);  // 403 Forbidden HTTP státusz
+        }
+
+        // Ha admin, engedjük tovább a kérést a következő middleware-hez vagy controllerhez
+        return $next($request);
+    }
+}
+```
+
+**Middleware regisztrálása (bootstrap/app.php):**
+
+```php
+<?php
+
+use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Configuration\Exceptions;
+use Illuminate\Foundation\Configuration\Middleware;
+
+return Application::configure(basePath: dirname(__DIR__))
+    ->withRouting(
+        web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
+        commands: __DIR__.'/../routes/console.php',
+        health: '/up',
+    )
+    ->withMiddleware(function (Middleware $middleware) {
+        // Admin middleware aliasának regisztrálása
+        // Ezután használható: Route::middleware('admin')
+        $middleware->alias([
+            'admin' => \App\Http\Middleware\IsAdmin::class,
+        ]);
+    })
+    ->withExceptions(function (Exceptions $exceptions) {
+        //
+    })->create();
+```
+
 ### 5. Első Teszt
 
 ```powershell
@@ -173,46 +246,57 @@ php artisan make:model Wishlist -m
 ```php
 <?php
 
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
+// Importáljuk a szükséges osztályokat
+use Illuminate\Database\Migrations\Migration;  // Migráció alap osztály
+use Illuminate\Database\Schema\Blueprint;      // Tábla szerkezet definiálásához
+use Illuminate\Support\Facades\Schema;         // Adatbázis séma kezeléshez
 
+// Névtelen osztály a migrációhoz
 return new class extends Migration
 {
+    /**
+     * Migráció futtatása - táblák létrehozása
+     */
     public function up(): void
     {
+        // Users tábla létrehozása - felhasználók tárolása
         Schema::create('users', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
-            $table->boolean('is_admin')->default(false);
-            $table->rememberToken();
-            $table->timestamps();
+            $table->id();                                      // Primary key (auto increment)
+            $table->string('name');                            // Felhasználó neve
+            $table->string('email')->unique();                 // Email cím (egyedi)
+            $table->timestamp('email_verified_at')->nullable(); // Email megerősítés időpontja
+            $table->string('password');                        // Titkosított jelszó
+            $table->boolean('is_admin')->default(false);       // Admin jogosultság (alapértelmezett: false)
+            $table->rememberToken();                           // "Remember me" token
+            $table->timestamps();                              // created_at és updated_at mezők
         });
 
+        // Jelszó visszaállítási tokenek táblája
         Schema::create('password_reset_tokens', function (Blueprint $table) {
-            $table->string('email')->primary();
-            $table->string('token');
-            $table->timestamp('created_at')->nullable();
+            $table->string('email')->primary();               // Email cím (primary key)
+            $table->string('token');                          // Visszaállítási token
+            $table->timestamp('created_at')->nullable();      // Token létrehozás időpontja
         });
 
+        // Session-ök tárolása (bejelentkezett felhasználók munkamenetei)
         Schema::create('sessions', function (Blueprint $table) {
-            $table->string('id')->primary();
-            $table->foreignId('user_id')->nullable()->index();
-            $table->string('ip_address', 45)->nullable();
-            $table->text('user_agent')->nullable();
-            $table->longText('payload');
-            $table->integer('last_activity')->index();
+            $table->string('id')->primary();                  // Session ID (primary key)
+            $table->foreignId('user_id')->nullable()->index(); // Felhasználó ID (nullable, indexelt)
+            $table->string('ip_address', 45)->nullable();     // IP cím (IPv4/IPv6)
+            $table->text('user_agent')->nullable();           // Böngésző információ
+            $table->longText('payload');                      // Session adatok
+            $table->integer('last_activity')->index();        // Utolsó aktivitás időbélyeg (indexelt)
         });
     }
 
+    /**
+     * Migráció visszavonása - táblák törlése
+     */
     public function down(): void
     {
-        Schema::dropIfExists('users');
-        Schema::dropIfExists('password_reset_tokens');
-        Schema::dropIfExists('sessions');
+        Schema::dropIfExists('users');                        // Users tábla törlése
+        Schema::dropIfExists('password_reset_tokens');        // Password reset tábla törlése
+        Schema::dropIfExists('sessions');                     // Sessions tábla törlése
     }
 };
 ```
@@ -222,27 +306,36 @@ return new class extends Migration
 ```php
 <?php
 
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
+// Importáljuk a szükséges osztályokat
+use Illuminate\Database\Migrations\Migration;  // Migráció alap osztály
+use Illuminate\Database\Schema\Blueprint;      // Tábla szerkezet definiálásához
+use Illuminate\Support\Facades\Schema;         // Adatbázis séma kezeléshez
 
+// Névtelen osztály a migrációhoz
 return new class extends Migration
 {
+    /**
+     * Migráció futtatása - products tábla létrehozása
+     */
     public function up(): void
     {
+        // Products tábla létrehozása - termékek tárolása
         Schema::create('products', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('category');
-            $table->decimal('price', 10, 2);
-            $table->integer('stock');
-            $table->timestamps();
+            $table->id();                          // Primary key (auto increment)
+            $table->string('name');                // Termék neve
+            $table->string('category');            // Termék kategóriája (pl: Electronics, Audio)
+            $table->decimal('price', 10, 2);       // Ár (max 10 számjegy, 2 tizedesjegy)
+            $table->integer('stock');              // Raktárkészlet (darabszám)
+            $table->timestamps();                  // created_at és updated_at mezők
         });
     }
 
+    /**
+     * Migráció visszavonása - products tábla törlése
+     */
     public function down(): void
     {
-        Schema::dropIfExists('products');
+        Schema::dropIfExists('products');          // Products tábla törlése
     }
 };
 ```
@@ -252,29 +345,39 @@ return new class extends Migration
 ```php
 <?php
 
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
+// Importáljuk a szükséges osztályokat
+use Illuminate\Database\Migrations\Migration;  // Migráció alap osztály
+use Illuminate\Database\Schema\Blueprint;      // Tábla szerkezet definiálásához
+use Illuminate\Support\Facades\Schema;         // Adatbázis séma kezeléshez
 
+// Névtelen osztály a migrációhoz
 return new class extends Migration
 {
+    /**
+     * Migráció futtatása - wishlists tábla létrehozása
+     */
     public function up(): void
     {
+        // Wishlists tábla létrehozása - kívánságlista kapcsolatok tárolása
         Schema::create('wishlists', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('product_id')->constrained()->cascadeOnDelete();
-            $table->timestamp('added_at')->useCurrent();
-            $table->timestamps();
+            $table->id();                                                    // Primary key (auto increment)
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete(); // Foreign key a users táblára, cascade delete
+            $table->foreignId('product_id')->constrained()->cascadeOnDelete(); // Foreign key a products táblára, cascade delete
+            $table->timestamp('added_at')->useCurrent();                    // Hozzáadás időpontja (alapértelmezett: most)
+            $table->timestamps();                                            // created_at és updated_at mezők
             
             // Unique constraint: egy user csak egyszer kedvelhet egy terméket
+            // Ez megakadályozza, hogy ugyanaz a user kétszer adja hozzá ugyanazt a terméket
             $table->unique(['user_id', 'product_id']);
         });
     }
 
+    /**
+     * Migráció visszavonása - wishlists tábla törlése
+     */
     public function down(): void
     {
-        Schema::dropIfExists('wishlists');
+        Schema::dropIfExists('wishlists');                                  // Wishlists tábla törlése
     }
 };
 ```
@@ -288,38 +391,60 @@ return new class extends Migration
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
+// Importáljuk a szükséges osztályokat és trait-eket
+use Illuminate\Database\Eloquent\Factories\HasFactory;  // Factory támogatás (tesztadatok generálása)
+use Illuminate\Foundation\Auth\User as Authenticatable; // Laravel alap autentikációs osztály
+use Illuminate\Notifications\Notifiable;                // Értesítések küldéséhez
+use Laravel\Sanctum\HasApiTokens;                       // API token hitelesités támogatása
 
+/**
+ * User modell - Felhasználók kezelése
+ * Ez az osztály felel a felhasználók adatainak tárolásáért és kapcsolatairól
+ */
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, HasApiTokens;
+    // Trait-ek használata (közös funkciók)
+    use HasFactory,    // Factory használata tesztadatokhoz
+        Notifiable,    // Értesítések küldése
+        HasApiTokens;  // API tokenek kezelése (Sanctum)
 
+    /**
+     * Tömegesen kitölthető mezők
+     * Ezek a mezők értékadása engedélyezett create() és update() műveletek során
+     */
     protected $fillable = [
-        'name',
-        'email',
-        'password',
-        'is_admin',
+        'name',        // Felhasználó neve
+        'email',       // Email cím
+        'password',    // Jelszó (titkosítva lesz tárolva)
+        'is_admin',    // Admin jogosultság flag
     ];
 
+    /**
+     * Rejtett mezők - nem jelennek meg JSON-ben
+     * Biztonsági okokból ezeket a mezőket elrejtjük az API válaszokban
+     */
     protected $hidden = [
-        'password',
-        'remember_token',
+        'password',        // Jelszó sosem kerül visszaküldésre
+        'remember_token',  // Remember me token sem
     ];
 
+    /**
+     * Mezők tipus konverziója (casting)
+     * Meghatározza, hogy egyes mezők milyen típusra legyenek konvertálva
+     */
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-            'is_admin' => 'boolean',
+            'email_verified_at' => 'datetime',  // Időpont objektummá konvertálás
+            'password' => 'hashed',             // Automatikus jelszó hash-elés
+            'is_admin' => 'boolean',            // Boolean értékké konvertálás
         ];
     }
 
     /**
-     * Get the wishlists for the user.
+     * Egy-sok kapcsolat: User -> Wishlist
+     * Egy felhasználónak több kívánságlista bejegyzése lehet
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function wishlists()
     {
@@ -327,13 +452,15 @@ class User extends Authenticatable
     }
 
     /**
-     * Get the products the user has wishlisted.
+     * Sok-sok kapcsolat: User <-> Product (wishlists táblán keresztül)
+     * A felhasználó kívánt termékei
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
      */
     public function wishlistedProducts()
     {
-        return $this->belongsToMany(Product::class, 'wishlists')
-                    ->withTimestamps()
-                    ->withPivot('added_at');
+        return $this->belongsToMany(Product::class, 'wishlists')  // Kapcsoló tábla: wishlists
+                    ->withTimestamps()                             // created_at és updated_at mezők használata
+                    ->withPivot('added_at');                      // added_at pivot mező hozzáférése
     }
 }
 ```
@@ -345,27 +472,42 @@ class User extends Authenticatable
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+// Importáljuk a szükséges osztályokat
+use Illuminate\Database\Eloquent\Model;                 // Eloquent ORM alap osztály
+use Illuminate\Database\Eloquent\Factories\HasFactory;  // Factory támogatás
 
+/**
+ * Product modell - Termékek kezelése
+ * Ez az osztály felel a termékek adatainak tárolásáért és kapcsolatairól
+ */
 class Product extends Model
 {
-    use HasFactory;
+    use HasFactory;  // Factory használata tesztadatok generálásához
 
+    /**
+     * Tömegesen kitölthető mezők
+     * Ezek a mezők értékadása engedélyezett create() és update() műveletek során
+     */
     protected $fillable = [
-        'name',
-        'category',
-        'price',
-        'stock',
-    ];
-
-    protected $casts = [
-        'price' => 'decimal:2',
-        'stock' => 'integer',
+        'name',        // Termék neve
+        'category',    // Kategória (pl: Electronics, Audio)
+        'price',       // Ár
+        'stock',       // Raktárkészlet
     ];
 
     /**
-     * Get the wishlists for the product.
+     * Mezők tipus konverziója (casting)
+     * Meghatározza, hogy egyes mezők milyen típusra legyenek konvertálva
+     */
+    protected $casts = [
+        'price' => 'decimal:2',  // Ár: decimal formátum 2 tizedes jeggyel
+        'stock' => 'integer',    // Raktárkészlet: egész szám
+    ];
+
+    /**
+     * Egy-sok kapcsolat: Product -> Wishlist
+     * Egy termék több kívánságlista bejegyzésben szerepelhet
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function wishlists()
     {
@@ -373,13 +515,15 @@ class Product extends Model
     }
 
     /**
-     * Get the users who have wishlisted this product.
+     * Sok-sok kapcsolat: Product <-> User (wishlists táblán keresztül)
+     * Azok a felhasználók, akik a terméket kívánják
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
      */
     public function wishlistedByUsers()
     {
-        return $this->belongsToMany(User::class, 'wishlists')
-                    ->withTimestamps()
-                    ->withPivot('added_at');
+        return $this->belongsToMany(User::class, 'wishlists')  // Kapcsoló tábla: wishlists
+                    ->withTimestamps()                          // created_at és updated_at mezők
+                    ->withPivot('added_at');                   // added_at pivot mező hozzáférése
     }
 }
 ```
@@ -391,37 +535,54 @@ class Product extends Model
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+// Importáljuk a szükséges osztályokat
+use Illuminate\Database\Eloquent\Model;                 // Eloquent ORM alap osztály
+use Illuminate\Database\Eloquent\Factories\HasFactory;  // Factory támogatás
 
+/**
+ * Wishlist modell - Kívánságlista kapcsolatok kezelése
+ * Ez a pivot (kapcsoló) modell kezeli a User és Product közöttiMany-to-Many kapcsolatot
+ */
 class Wishlist extends Model
 {
-    use HasFactory;
+    use HasFactory;  // Factory használata tesztadatok generálásához
 
+    /**
+     * Tömegesen kitölthető mezők
+     * Ezek a mezők értékadása engedélyezett create() és update() műveletek során
+     */
     protected $fillable = [
-        'user_id',
-        'product_id',
-        'added_at',
-    ];
-
-    protected $casts = [
-        'added_at' => 'datetime',
+        'user_id',      // Felhasználó azonosító (foreign key)
+        'product_id',   // Termék azonosító (foreign key)
+        'added_at',     // Hozzáadás időpontja
     ];
 
     /**
-     * Get the user that owns the wishlist.
+     * Mezők tipus konverziója (casting)
+     * Meghatározza, hogy egyes mezők milyen típusra legyenek konvertálva
+     */
+    protected $casts = [
+        'added_at' => 'datetime',  // added_at mező datetime objektummá konvertálása
+    ];
+
+    /**
+     * Fordított egy-sok kapcsolat: Wishlist -> User
+     * Egy wishlist bejegyzés egy felhasználóhoz tartozik
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class);  // Hivatkozás a users táblára
     }
 
     /**
-     * Get the product that is wishlisted.
+     * Fordított egy-sok kapcsolat: Wishlist -> Product
+     * Egy wishlist bejegyzés egy termékhez tartozik
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function product()
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(Product::class);  // Hivatkozás a products táblára
     }
 }
 ```
@@ -458,38 +619,49 @@ php artisan make:seeder WishlistSeeder
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use App\Models\User;
-use Illuminate\Support\Facades\Hash;
+// Importáljuk a szükséges osztályokat
+use Illuminate\Database\Seeder;           // Seeder alap osztály
+use App\Models\User;                      // User modell
+use Illuminate\Support\Facades\Hash;      // Jelszó hash-eléshez
 
+/**
+ * UserSeeder - Felhasználók adatbázisba töltése
+ * Ez a seeder teszt felhasználókat hoz létre az adatbázisban
+ */
 class UserSeeder extends Seeder
 {
+    /**
+     * Seeder futtatása
+     * Létrehoz egy admin és néhány normál felhasználót
+     */
     public function run(): void
     {
-        // Admin user
+        // Admin felhasználó létrehozása
         User::create([
-            'name' => 'Admin User',
-            'email' => 'admin@example.com',
-            'password' => Hash::make('password'),
-            'is_admin' => true,
+            'name' => 'Admin User',                   // Név
+            'email' => 'admin@example.com',           // Email (egyedi)
+            'password' => Hash::make('password'),     // Jelszó: "password" (hash-elve)
+            'is_admin' => true,                       // Admin jogosultság: IGEN
         ]);
 
-        // Normal users
+        // Első normál felhasználó létrehozása
         User::create([
-            'name' => 'John Doe',
-            'email' => 'john@example.com',
-            'password' => Hash::make('password'),
-            'is_admin' => false,
+            'name' => 'John Doe',                     // Név
+            'email' => 'john@example.com',            // Email (egyedi)
+            'password' => Hash::make('password'),     // Jelszó: "password" (hash-elve)
+            'is_admin' => false,                      // Admin jogosultság: NEM
         ]);
 
+        // Második normál felhasználó létrehozása
         User::create([
-            'name' => 'Jane Smith',
-            'email' => 'jane@example.com',
-            'password' => Hash::make('password'),
-            'is_admin' => false,
+            'name' => 'Jane Smith',                   // Név
+            'email' => 'jane@example.com',            // Email (egyedi)
+            'password' => Hash::make('password'),     // Jelszó: "password" (hash-elve)
+            'is_admin' => false,                      // Admin jogosultság: NEM
         ]);
 
-        // További felhasználók factory-val
+        // További 7 véletlen felhasználó generálása factory-val
+        // A factory véletlen adatokat generál (faker library használatával)
         User::factory(7)->create();
     }
 }
@@ -502,19 +674,29 @@ class UserSeeder extends Seeder
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use App\Models\Product;
+// Importáljuk a szükséges osztályokat
+use Illuminate\Database\Seeder;  // Seeder alap osztály
+use App\Models\Product;          // Product modell
 
+/**
+ * ProductSeeder - Termékek adatbázisba töltése
+ * Ez a seeder teszt termékeket hoz létre az adatbázisban
+ */
 class ProductSeeder extends Seeder
 {
+    /**
+     * Seeder futtatása
+     * Létrehoz kézi és generált termékeket
+     */
     public function run(): void
     {
+        // Konkrét termékek definiálása tömbben
         $products = [
             [
-                'name' => 'Laptop Dell XPS 15',
-                'category' => 'Electronics',
-                'price' => 1299.99,
-                'stock' => 15,
+                'name' => 'Laptop Dell XPS 15',       // Termék neve
+                'category' => 'Electronics',          // Kategória
+                'price' => 1299.99,                   // Ár (USD)
+                'stock' => 15,                        // Raktárkészlet (db)
             ],
             [
                 'name' => 'iPhone 15 Pro',
@@ -529,19 +711,44 @@ class ProductSeeder extends Seeder
                 'stock' => 30,
             ],
             [
-                'name' => 'Sony WH-1000XM5',
+                'name' => 'Sony WH-1000XM5',          // Fejhallgató
                 'category' => 'Audio',
                 'price' => 349.99,
                 'stock' => 50,
             ],
-            // ... több termék
+            [
+                'name' => 'iPad Pro 12.9',
+                'category' => 'Electronics',
+                'price' => 1099.99,
+                'stock' => 20,
+            ],
+            [
+                'name' => 'MacBook Pro 16',
+                'category' => 'Electronics',
+                'price' => 2499.99,
+                'stock' => 10,
+            ],
+            [
+                'name' => 'AirPods Pro',
+                'category' => 'Audio',
+                'price' => 249.99,
+                'stock' => 100,
+            ],
+            [
+                'name' => 'Samsung 4K Monitor',
+                'category' => 'Electronics',
+                'price' => 499.99,
+                'stock' => 35,
+            ],
         ];
 
+        // Végigiterálunk a termékek tömbjén és mindegyiket létrehozzuk
         foreach ($products as $product) {
-            Product::create($product);
+            Product::create($product);  // Termék mentése az adatbázisba
         }
 
-        // További termékek factory-val
+        // További 20 véletlen termék generálása factory-val
+        // A factory véletlen adatokat generál (faker library használatával)
         Product::factory(20)->create();
     }
 }
@@ -549,7 +756,50 @@ class ProductSeeder extends Seeder
 
 #### database/seeders/WishlistSeeder.php
 
-A seeder automatikusan létrehoz kapcsolatokat a felhasználók és termékek között.
+```php
+<?php
+
+namespace Database\Seeders;
+
+// Importáljuk a szükséges osztályokat
+use Illuminate\Database\Seeder;  // Seeder alap osztály
+use App\Models\User;             // User modell
+use App\Models\Product;          // Product modell
+use App\Models\Wishlist;         // Wishlist modell
+
+/**
+ * WishlistSeeder - Kívánságlista kapcsolatok létrehozása
+ * Ez a seeder véletlenszerű wishlist bejegyzéseket hoz létre
+ */
+class WishlistSeeder extends Seeder
+{
+    /**
+     * Seeder futtatása
+     * Létrehoz kapcsolatokat felhasználók és termékek között
+     */
+    public function run(): void
+    {
+        // Összes felhasználó és termék lekérése
+        $users = User::all();           // Összes user az adatbázisból
+        $products = Product::all();     // Összes product az adatbázisból
+
+        // Végigmegyünk minden felhasználón
+        foreach ($users as $user) {
+            // Véletlenszerű számú termék (1-5 közötti) hozzáadása a kívánságlistához
+            $randomProducts = $products->random(rand(1, 5));
+            
+            // Minden kiválasztott termékhez létrehozunk egy wishlist bejegyzést
+            foreach ($randomProducts as $product) {
+                Wishlist::create([
+                    'user_id' => $user->id,           // Felhasználó ID
+                    'product_id' => $product->id,     // Termék ID
+                    'added_at' => now(),              // Aktuális időpont
+                ]);
+            }
+        }
+    }
+}
+```
 
 #### database/seeders/DatabaseSeeder.php
 
@@ -558,16 +808,27 @@ A seeder automatikusan létrehoz kapcsolatokat a felhasználók és termékek k�
 
 namespace Database\Seeders;
 
+// Importáljuk a Seeder alap osztályt
 use Illuminate\Database\Seeder;
 
+/**
+ * DatabaseSeeder - Fő seeder osztály
+ * Ez az osztály hívja meg az összes többi seedert a megfelelő sorrendben
+ */
 class DatabaseSeeder extends Seeder
 {
+    /**
+     * Seeder futtatása
+     * Az összes seeder meghívása helyes sorrendben
+     */
     public function run(): void
     {
+        // Seederek meghívása sorrendben
+        // FONTOS: A sorrend számít a foreign key kapcsolatok miatt!
         $this->call([
-            UserSeeder::class,
-            ProductSeeder::class,
-            WishlistSeeder::class,
+            UserSeeder::class,       // 1. Először a felhasználók (nincs függősége)
+            ProductSeeder::class,    // 2. Majd a termékek (nincs függősége)
+            WishlistSeeder::class,   // 3. Végül a wishlists (függ userstől és productstól)
         ]);
     }
 }
@@ -602,40 +863,53 @@ php artisan make:controller Api/WishlistController
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
-use App\Models\User;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Validator;
+// Importáljuk a szükséges osztályokat
+use App\Http\Controllers\Controller;         // Alap controller osztály
+use App\Models\User;                         // User modell
+use Illuminate\Http\Request;                 // HTTP kérés kezelése
+use Illuminate\Support\Facades\Hash;         // Jelszó hash-elés
+use Illuminate\Support\Facades\Validator;    // Validáció
 
+/**
+ * AuthController - Felhasználói autentikáció kezelése
+ * Kezeli a regisztrációt, bejelentkezést, kijelentkezést
+ */
 class AuthController extends Controller
 {
     /**
-     * Register a new user.
+     * Új felhasználó regisztrálása
+     * POST /api/register
+     * 
+     * @param Request $request - HTTP kérés objektum (tartalmazza a POST adatokat)
+     * @return \Illuminate\Http\JsonResponse - JSON válasz
      */
     public function register(Request $request)
     {
+        // Validációs szabályok definiálása
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8|confirmed',
-            'is_admin' => 'sometimes|boolean',
+            'name' => 'required|string|max:255',                    // Név: kötelező, string, max 255 karakter
+            'email' => 'required|string|email|max:255|unique:users', // Email: kötelező, email formátum, egyedi
+            'password' => 'required|string|min:8|confirmed',        // Jelszó: kötelező, min 8 karakter, megerősítés kell
+            'is_admin' => 'sometimes|boolean',                      // Admin flag: opcionális, boolean
         ]);
 
+        // Ha a validáció sikertelen, visszaadjuk a hibákat
         if ($validator->fails()) {
             return response()->json([
-                'message' => 'Validation error',
-                'errors' => $validator->errors()
-            ], 422);
+                'message' => 'Validation error',      // Hibaüzenet
+                'errors' => $validator->errors()      // Validációs hibák részletei
+            ], 422);  // 422 Unprocessable Entity HTTP státusz
         }
 
+        // Új felhasználó létrehozása az adatbázisban
         $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'is_admin' => $request->input('is_admin', false),
+            'name' => $request->name,                              // Név
+            'email' => $request->email,                            // Email
+            'password' => Hash::make($request->password),          // Jelszó hash-elése (biztonság)
+            'is_admin' => $request->input('is_admin', false),     // Admin flag (alapértelmezett: false)
         ]);
 
+        // Sikeres regisztráció visszajelzése
         return response()->json([
             'message' => 'User registered successfully. Please login.',
             'user' => [
@@ -644,19 +918,25 @@ class AuthController extends Controller
                 'email' => $user->email,
                 'is_admin' => $user->is_admin,
             ],
-        ], 201);
+        ], 201);  // 201 Created HTTP státusz
     }
 
     /**
-     * Login user and create token.
+     * Felhasználó bejelentkeztetése és API token létrehozása
+     * POST /api/login
+     * 
+     * @param Request $request - HTTP kérés objektum (email és password)
+     * @return \Illuminate\Http\JsonResponse - JSON válasz tokennel
      */
     public function login(Request $request)
     {
+        // Bejelentkezési adatok validációja
         $validator = Validator::make($request->all(), [
-            'email' => 'required|email',
-            'password' => 'required',
+            'email' => 'required|email',       // Email: kötelező, email formátum
+            'password' => 'required',          // Jelszó: kötelező
         ]);
 
+        // Ha a validáció sikertelen
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation error',
@@ -664,29 +944,40 @@ class AuthController extends Controller
             ], 422);
         }
 
+        // Felhasználó keresése email alapján
         $user = User::where('email', $request->email)->first();
 
+        // Ellenőrizzük, hogy létezik-e a user és helyes-e a jelszó
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
-                'message' => 'Invalid credentials'
-            ], 401);
+                'message' => 'Invalid credentials'  // Hibás email vagy jelszó
+            ], 401);  // 401 Unauthorized HTTP státusz
         }
 
+        // Sanctum API token létrehozása a felhasználóhoz
         $token = $user->createToken('auth_token')->plainTextToken;
 
+        // Sikeres bejelentkezés visszajelzése tokennel
         return response()->json([
             'message' => 'Login successful',
-            'user' => $user,
-            'access_token' => $token,
-            'token_type' => 'Bearer',
+            'user' => $user,                   // Felhasználó adatai
+            'access_token' => $token,          // API access token
+            'token_type' => 'Bearer',          // Token típusa (Bearer használatos API-knál)
         ]);
     }
 
     /**
-     * Logout user (revoke token).
+     * Felhasználó kijelentkeztetése (token törlése)
+     * POST /api/logout
+     * Middleware: auth:sanctum (csak bejelentkezett felhasználóknak)
+     * 
+     * @param Request $request - HTTP kérés objektum (tartalmazza az autentikált usert)
+     * @return \Illuminate\Http\JsonResponse - JSON válasz
      */
     public function logout(Request $request)
     {
+        // Az aktuális access token törlése
+        // Ez érvényteleníti a tokent, így nem lesz használható többé
         $request->user()->currentAccessToken()->delete();
 
         return response()->json([
@@ -695,10 +986,16 @@ class AuthController extends Controller
     }
 
     /**
-     * Get authenticated user.
+     * Bejelentkezett felhasználó adatainak lekérése
+     * GET /api/me
+     * Middleware: auth:sanctum
+     * 
+     * @param Request $request - HTTP kérés objektum
+     * @return \Illuminate\Http\JsonResponse - Felhasználó adatai JSON-ben
      */
     public function me(Request $request)
     {
+        // Az autentikált felhasználó adatainak visszaadása
         return response()->json($request->user());
     }
 }
@@ -713,78 +1010,117 @@ class AuthController extends Controller
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
-use App\Models\Product;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
+// Importáljuk a szükséges osztályokat
+use App\Http\Controllers\Controller;         // Alap controller osztály
+use App\Models\Product;                      // Product modell
+use Illuminate\Http\Request;                 // HTTP kérés kezelése
+use Illuminate\Support\Facades\Validator;    // Validáció
 
+/**
+ * ProductController - Termékek kezelése
+ * CRUD (Create, Read, Update, Delete) műveletek termékekkel
+ */
 class ProductController extends Controller
 {
     /**
-     * Display a listing of the products (public).
+     * Összes termék listázása (publikus végpont)
+     * GET /api/products
+     * Nem kell autentikáció - bárki megtekintheti a termékeket
+     * 
+     * @param Request $request - HTTP kérés objektum
+     * @return \Illuminate\Http\JsonResponse - Termékek JSON listája
      */
     public function index(Request $request)
     {
+        // Összes termék lekérése az adatbázisból
         $products = Product::all();
+        
+        // Termékek visszaadása JSON formátumban
         return response()->json($products);
     }
 
     /**
-     * Store a newly created product (admin only).
+     * Új termék létrehozása (csak admin)
+     * POST /api/products
+     * Middleware: auth:sanctum, admin
+     * 
+     * @param Request $request - HTTP kérés objektum (tartalmazza a termék adatait)
+     * @return \Illuminate\Http\JsonResponse - Létrehozott termék adatai
      */
     public function store(Request $request)
     {
+        // Bemeneti adatok validálása
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'category' => 'required|string|max:255',
-            'price' => 'required|numeric|min:0',
-            'stock' => 'required|integer|min:0',
+            'name' => 'required|string|max:255',        // Név: kötelező, string, max 255 karakter
+            'category' => 'required|string|max:255',    // Kategória: kötelező, string, max 255 karakter
+            'price' => 'required|numeric|min:0',        // Ár: kötelező, szám, minimum 0
+            'stock' => 'required|integer|min:0',        // Készlet: kötelező, egész szám, minimum 0
         ]);
 
+        // Ha a validáció sikertelen, hibákat visszaadunk
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation error',
                 'errors' => $validator->errors()
-            ], 422);
+            ], 422);  // 422 Unprocessable Entity
         }
 
+        // Új termék létrehozása az adatbázisban
         $product = Product::create($request->all());
 
+        // Sikeres létrehozás visszajelzése
         return response()->json([
             'message' => 'Product created successfully',
             'product' => $product
-        ], 201);
+        ], 201);  // 201 Created HTTP státusz
     }
 
     /**
-     * Display the specified product (public).
+     * Adott termék megtekintése (publikus végpont)
+     * GET /api/products/{id}
+     * 
+     * @param int $id - Termék azonosító
+     * @return \Illuminate\Http\JsonResponse - Termék adatai vagy hibaüzenet
      */
     public function show($id)
     {
+        // Termék keresése ID alapján
         $product = Product::find($id);
 
+        // Ha nem található a termék, 404 hiba
         if (!$product) {
             return response()->json([
                 'message' => 'Product not found'
-            ], 404);
+            ], 404);  // 404 Not Found HTTP státusz
         }
 
+        // Termék adatainak visszaadása
         return response()->json($product);
     }
 
     /**
-     * Update the specified product (admin only).
+     * Termék módosítása (csak admin)
+     * PUT /api/products/{id}
+     * Middleware: auth:sanctum, admin
+     * 
+     * @param Request $request - HTTP kérés objektum (módosított adatok)
+     * @param int $id - Termék azonosító
+     * @return \Illuminate\Http\JsonResponse - Frissített termék vagy hibaüzenet
      */
     public function update(Request $request, $id)
     {
+        // Termék keresése ID alapján
         $product = Product::find($id);
 
+        // Ha nem található a termék, 404 hiba
         if (!$product) {
             return response()->json([
                 'message' => 'Product not found'
             ], 404);
         }
 
+        // Bemeneti adatok validálása
+        // 'sometimes' = csak akkor kötelező, ha be van küldve az érték
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|required|string|max:255',
             'category' => 'sometimes|required|string|max:255',
@@ -792,6 +1128,7 @@ class ProductController extends Controller
             'stock' => 'sometimes|required|integer|min:0',
         ]);
 
+        // Ha a validáció sikertelen
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation error',
@@ -799,8 +1136,10 @@ class ProductController extends Controller
             ], 422);
         }
 
+        // Termék frissítése a beküldött adatokkal
         $product->update($request->all());
 
+        // Sikeres frissítés visszajelzése
         return response()->json([
             'message' => 'Product updated successfully',
             'product' => $product
@@ -808,20 +1147,30 @@ class ProductController extends Controller
     }
 
     /**
-     * Remove the specified product (admin only).
+     * Termék törlése (csak admin)
+     * DELETE /api/products/{id}
+     * Middleware: auth:sanctum, admin
+     * 
+     * @param int $id - Termék azonosító
+     * @return \Illuminate\Http\JsonResponse - Sikeres törlés üzenet vagy hiba
      */
     public function destroy($id)
     {
+        // Termék keresése ID alapján
         $product = Product::find($id);
 
+        // Ha nem található a termék, 404 hiba
         if (!$product) {
             return response()->json([
                 'message' => 'Product not found'
             ], 404);
         }
 
+        // Termék törlése az adatbázisból
+        // FONTOS: A cascade delete miatt a kapcsolódó wishlist bejegyzések is törlődnek
         $product->delete();
 
+        // Sikeres törlés visszajelzése
         return response()->json([
             'message' => 'Product deleted successfully'
         ]);
@@ -838,44 +1187,71 @@ class ProductController extends Controller
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
-use App\Models\Wishlist;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
+// Importáljuk a szükséges osztályokat
+use App\Http\Controllers\Controller;         // Alap controller osztály
+use App\Models\Wishlist;                     // Wishlist modell
+use Illuminate\Http\Request;                 // HTTP kérés kezelése
+use Illuminate\Support\Facades\Validator;    // Validáció
 
+/**
+ * WishlistController - Kívánságlista kezelése
+ * CRUD műveletek a felhasználók kívánságlistájával
+ */
 class WishlistController extends Controller
 {
     /**
-     * Display a listing of the user's wishlists.
+     * Felhasználó saját kívánságlistájának lekérése
+     * GET /api/wishlists
+     * Middleware: auth:sanctum
+     * 
+     * @param Request $request - HTTP kérés objektum (tartalmazza az autentikált usert)
+     * @return \Illuminate\Http\JsonResponse - Wishlist bejegyzések termék adatokkal
      */
     public function index(Request $request)
     {
+        // Bejelentkezett felhasználó lekérése
         $user = $request->user();
-        $wishlists = Wishlist::where('user_id', $user->id)
-            ->with('product')
-            ->get();
+        
+        // Felhasználó wishlist bejegyzéseinek lekérése termék adatokkal
+        $wishlists = Wishlist::where('user_id', $user->id)  // Csak a saját wishlistek
+            ->with('product')                                 // Eager loading: termék adatok betöltése
+            ->get();                                          // Lekérés
 
+        // Wishlistek visszaadása JSON formátumban
         return response()->json($wishlists);
     }
 
     /**
-     * Display all wishlists (admin only).
+     * Összes wishlist lekérése (csak admin)
+     * GET /api/admin/wishlists
+     * Middleware: auth:sanctum, admin
+     * 
+     * @return \Illuminate\Http\JsonResponse - Összes wishlist user és termék adatokkal
      */
     public function indexAll()
     {
-        $wishlists = Wishlist::with(['user', 'product'])->get();
+        // Összes wishlist bejegyzés lekérése user és termék adatokkal
+        $wishlists = Wishlist::with(['user', 'product'])->get();  // Eager loading mindkét kapcsolathoz
+        
         return response()->json($wishlists);
     }
 
     /**
-     * Add a product to the user's wishlist.
+     * Termék hozzáadása a kívánságlistához
+     * POST /api/wishlists
+     * Middleware: auth:sanctum
+     * 
+     * @param Request $request - HTTP kérés objektum (product_id)
+     * @return \Illuminate\Http\JsonResponse - Létrehozott wishlist bejegyzés vagy hiba
      */
     public function store(Request $request)
     {
+        // Bemeneti adat validálása
         $validator = Validator::make($request->all(), [
-            'product_id' => 'required|exists:products,id',
+            'product_id' => 'required|exists:products,id',  // Kötelező, léteznie kell a products táblában
         ]);
 
+        // Ha a validáció sikertelen
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation error',
@@ -883,79 +1259,111 @@ class WishlistController extends Controller
             ], 422);
         }
 
-        // Check if already in wishlist
+        // Ellenőrizzük, hogy már benne van-e a termék a wishlistben
+        // Ez megakadályozza a duplikációt (bár az adatbázis unique constraint is véd)
         $existingWishlist = Wishlist::where('user_id', $request->user()->id)
             ->where('product_id', $request->product_id)
             ->first();
 
+        // Ha már létezik, 409 Conflict hibát adunk
         if ($existingWishlist) {
             return response()->json([
                 'message' => 'Product is already in your wishlist'
-            ], 409);
+            ], 409);  // 409 Conflict HTTP státusz
         }
 
+        // Új wishlist bejegyzés létrehozása
         $wishlist = Wishlist::create([
-            'user_id' => $request->user()->id,
-            'product_id' => $request->product_id,
-            'added_at' => now(),
+            'user_id' => $request->user()->id,      // Bejelentkezett felhasználó ID-ja
+            'product_id' => $request->product_id,   // Kiválasztott termék ID-ja
+            'added_at' => now(),                    // Aktuális időpont
         ]);
 
-        $wishlist->load('product');
+        // Termék adatok betöltése a válaszhoz
+        $wishlist->load('product');  // Eager loading: product kapcsolat betöltése
 
+        // Sikeres létrehozás visszajelzése
         return response()->json([
             'message' => 'Product added to wishlist successfully',
             'wishlist' => $wishlist
-        ], 201);
+        ], 201);  // 201 Created HTTP státusz
     }
 
     /**
-     * Display the specified wishlist item.
+     * Adott wishlist bejegyzés megtekintése
+     * GET /api/wishlists/{id}
+     * Middleware: auth:sanctum
+     * 
+     * @param Request $request - HTTP kérés objektum
+     * @param int $id - Wishlist bejegyzés azonosító
+     * @return \Illuminate\Http\JsonResponse - Wishlist bejegyzés vagy hiba
      */
     public function show(Request $request, $id)
     {
+        // Wishlist bejegyzés keresése ID alapján
+        // FONTOS: Csak a saját wishlist bejegyzéseket lehet megtekinteni
         $wishlist = Wishlist::where('id', $id)
-            ->where('user_id', $request->user()->id)
-            ->with('product')
+            ->where('user_id', $request->user()->id)  // Biztonsági ellenőrzés: csak saját
+            ->with('product')                          // Termék adatok betöltése
             ->first();
 
+        // Ha nem található vagy nem a felhasználóé
         if (!$wishlist) {
             return response()->json([
                 'message' => 'Wishlist item not found'
-            ], 404);
+            ], 404);  // 404 Not Found HTTP státusz
         }
 
+        // Wishlist bejegyzés visszaadása
         return response()->json($wishlist);
     }
 
     /**
-     * Remove the specified wishlist item.
+     * Termék eltávolítása a kívánságlistából
+     * DELETE /api/wishlists/{id}
+     * Middleware: auth:sanctum
+     * 
+     * @param Request $request - HTTP kérés objektum
+     * @param int $id - Wishlist bejegyzés azonosító
+     * @return \Illuminate\Http\JsonResponse - Sikeres törlés vagy hiba
      */
     public function destroy(Request $request, $id)
     {
+        // Wishlist bejegyzés keresése ID alapján
+        // FONTOS: Csak a saját wishlist bejegyzéseket lehet törölni
         $wishlist = Wishlist::where('id', $id)
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', $request->user()->id)  // Biztonsági ellenőrzés: csak saját
             ->first();
 
+        // Ha nem található vagy nem a felhasználóé
         if (!$wishlist) {
             return response()->json([
                 'message' => 'Wishlist item not found'
             ], 404);
         }
 
+        // Wishlist bejegyzés törlése az adatbázisból
         $wishlist->delete();
 
+        // Sikeres törlés visszajelzése
         return response()->json([
             'message' => 'Product removed from wishlist successfully'
         ]);
     }
 
     /**
-     * Get wishlist for specific user (admin only).
+     * Adott felhasználó kívánságlistájának lekérése (csak admin)
+     * GET /api/admin/users/{userId}/wishlists
+     * Middleware: auth:sanctum, admin
+     * 
+     * @param int $userId - Felhasználó azonosító
+     * @return \Illuminate\Http\JsonResponse - Felhasználó wishlistjei
      */
     public function getUserWishlist($userId)
     {
+        // Adott felhasználó összes wishlist bejegyzésének lekérése
         $wishlists = Wishlist::where('user_id', $userId)
-            ->with(['user', 'product'])
+            ->with(['user', 'product'])  // User és termék adatok betöltése
             ->get();
 
         return response()->json($wishlists);
@@ -970,51 +1378,277 @@ class WishlistController extends Controller
 ```php
 <?php
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\ProductController;
-use App\Http\Controllers\Api\WishlistController;
-use App\Http\Controllers\Api\UserController;
+// Importáljuk a szükséges osztályokat
+use Illuminate\Http\Request;                          // HTTP kérés kezelése
+use Illuminate\Support\Facades\Route;                 // Route facade (útvonal kezelés)
+use App\Http\Controllers\Api\AuthController;          // Autentikáció controller
+use App\Http\Controllers\Api\ProductController;       // Termék controller
+use App\Http\Controllers\Api\WishlistController;      // Wishlist controller
+use App\Http\Controllers\Api\UserController;          // User controller (admin)
 
-// Public routes
+/**
+ * API Routes - REST API végpontok definiálása
+ * Prefix: /api (automatikusan hozzáadódik minden útvonalon)
+ * Példa: /api/login, /api/products, stb.
+ */
+
+// ============================================================================
+// PUBLIKUS ÚTVONALAK - Autentikáció nélkül elérhetők
+// ============================================================================
+
+// Regisztráció - új felhasználó létrehozása
 Route::post('/register', [AuthController::class, 'register']);
+
+// Bejelentkezés - API token generálása
 Route::post('/login', [AuthController::class, 'login']);
 
-// Public product routes (anyone can view products)
-Route::get('/products', [ProductController::class, 'index']);
-Route::get('/products/{id}', [ProductController::class, 'show']);
+// Termékek publikus lekérése - bárki megtekintheti
+Route::get('/products', [ProductController::class, 'index']);       // Összes termék listázása
+Route::get('/products/{id}', [ProductController::class, 'show']);   // Adott termék megtekintése
 
-// Protected routes (requires authentication)
+// ============================================================================
+// VÉDETT ÚTVONALAK - auth:sanctum middleware (token szükséges)
+// ============================================================================
+
 Route::middleware('auth:sanctum')->group(function () {
-    // Auth routes
+    
+    // ------------------------------------------------------------------------
+    // Autentikáció útvonalak (bejelentkezett felhasználóknak)
+    // ------------------------------------------------------------------------
+    
+    // Kijelentkezés - aktuális token törlése
     Route::post('/logout', [AuthController::class, 'logout']);
+    
+    // Saját profil lekérése
     Route::get('/me', [AuthController::class, 'me']);
 
-    // Wishlist routes for authenticated users
+    // ------------------------------------------------------------------------
+    // Wishlist útvonalak (bejelentkezett felhasználóknak)
+    // ------------------------------------------------------------------------
+    
+    // Saját kívánságlista lekérése
     Route::get('/wishlists', [WishlistController::class, 'index']);
+    
+    // Termék hozzáadása a kívánságlistához
     Route::post('/wishlists', [WishlistController::class, 'store']);
+    
+    // Adott wishlist bejegyzés megtekintése
     Route::get('/wishlists/{id}', [WishlistController::class, 'show']);
+    
+    // Termék eltávolítása a kívánságlistából
     Route::delete('/wishlists/{id}', [WishlistController::class, 'destroy']);
 
-    // Admin-only routes
+    // ========================================================================
+    // ADMIN ÚTVONALAK - admin middleware (admin jogosultság szükséges)
+    // ========================================================================
+    
     Route::middleware('admin')->group(function () {
-        // Product management
+        
+        // --------------------------------------------------------------------
+        // Termék kezelés (csak admin)
+        // --------------------------------------------------------------------
+        
+        // Új termék létrehozása
         Route::post('/products', [ProductController::class, 'store']);
+        
+        // Termék módosítása
         Route::put('/products/{id}', [ProductController::class, 'update']);
+        
+        // Termék törlése
         Route::delete('/products/{id}', [ProductController::class, 'destroy']);
 
-        // User management
+        // --------------------------------------------------------------------
+        // Felhasználó kezelés (csak admin)
+        // --------------------------------------------------------------------
+        
+        // Összes felhasználó listázása
         Route::get('/users', [UserController::class, 'index']);
+        
+        // Adott felhasználó megtekintése
         Route::get('/users/{id}', [UserController::class, 'show']);
+        
+        // Felhasználó módosítása
         Route::put('/users/{id}', [UserController::class, 'update']);
+        
+        // Felhasználó törlése
         Route::delete('/users/{id}', [UserController::class, 'destroy']);
 
-        // All wishlists (admin view)
+        // --------------------------------------------------------------------
+        // Wishlist admin útvonalak (csak admin)
+        // --------------------------------------------------------------------
+        
+        // Összes wishlist lekérése (admin nézet)
         Route::get('/admin/wishlists', [WishlistController::class, 'indexAll']);
+        
+        // Adott felhasználó kívánságlistájának lekérése
         Route::get('/admin/users/{userId}/wishlists', [WishlistController::class, 'getUserWishlist']);
     });
 });
+
+/**
+ * Middleware magyarázat:
+ * 
+ * - auth:sanctum: Laravel Sanctum autentikáció
+ *   Ellenőrzi a Bearer tokent a request headerben
+ *   Ha érvénytelen/hiányzik -> 401 Unauthorized
+ * 
+ * - admin: Egyedi middleware (app/Http/Middleware/IsAdmin.php)
+ *   Ellenőrzi, hogy a user->is_admin == true
+ *   Ha nem admin -> 403 Forbidden
+ * 
+ * Route csoportok:
+ * - Route::middleware()->group(): Middleware alkalmazása több útvonalra
+ * - Nested groups: Belül is lehet újabb group (pl. admin middleware)
+ */
+```
+
+### 6. UserController Implementálása (Admin funkciók)
+
+#### app/Http/Controllers/Api/UserController.php
+
+```php
+<?php
+
+namespace App\Http\Controllers\Api;
+
+// Importáljuk a szükséges osztályokat
+use App\Http\Controllers\Controller;         // Alap controller osztály
+use App\Models\User;                         // User modell
+use Illuminate\Http\Request;                 // HTTP kérés kezelése
+use Illuminate\Support\Facades\Hash;         // Jelszó hash-elés
+use Illuminate\Support\Facades\Validator;    // Validáció
+
+/**
+ * UserController - Felhasználók kezelése (Admin funkciók)
+ * CRUD műveletek felhasználókkal (csak admin jogosultsággal)
+ */
+class UserController extends Controller
+{
+    /**
+     * Összes felhasználó listázása (csak admin)
+     * GET /api/users
+     * Middleware: auth:sanctum, admin
+     * 
+     * @return \Illuminate\Http\JsonResponse - Felhasználók listája
+     */
+    public function index()
+    {
+        // Összes felhasználó lekérése az adatbázisból
+        $users = User::all();
+        
+        return response()->json($users);
+    }
+
+    /**
+     * Adott felhasználó megtekintése (csak admin)
+     * GET /api/users/{id}
+     * Middleware: auth:sanctum, admin
+     * 
+     * @param int $id - Felhasználó azonosító
+     * @return \Illuminate\Http\JsonResponse - Felhasználó adatai vagy hiba
+     */
+    public function show($id)
+    {
+        // Felhasználó keresése ID alapján
+        $user = User::find($id);
+
+        // Ha nem található
+        if (!$user) {
+            return response()->json([
+                'message' => 'User not found'
+            ], 404);  // 404 Not Found
+        }
+
+        // Felhasználó adatainak visszaadása
+        return response()->json($user);
+    }
+
+    /**
+     * Felhasználó módosítása (csak admin)
+     * PUT /api/users/{id}
+     * Middleware: auth:sanctum, admin
+     * 
+     * @param Request $request - HTTP kérés objektum (módosított adatok)
+     * @param int $id - Felhasználó azonosító
+     * @return \Illuminate\Http\JsonResponse - Frissített felhasználó vagy hiba
+     */
+    public function update(Request $request, $id)
+    {
+        // Felhasználó keresése ID alapján
+        $user = User::find($id);
+
+        // Ha nem található
+        if (!$user) {
+            return response()->json([
+                'message' => 'User not found'
+            ], 404);
+        }
+
+        // Bemeneti adatok validálása
+        // 'sometimes' = csak akkor kötelező, ha be van küldve
+        $validator = Validator::make($request->all(), [
+            'name' => 'sometimes|required|string|max:255',                      // Név
+            'email' => 'sometimes|required|string|email|max:255|unique:users,email,'.$id,  // Email (egyedi, kivéve saját)
+            'password' => 'sometimes|required|string|min:8',                    // Jelszó (minimum 8 karakter)
+            'is_admin' => 'sometimes|boolean',                                  // Admin flag
+        ]);
+
+        // Ha a validáció sikertelen
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation error',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        // Frissítendő adatok előkészítése
+        $updateData = $request->only(['name', 'email', 'is_admin']);
+
+        // Ha új jelszót adtak meg, hash-eljük
+        if ($request->has('password')) {
+            $updateData['password'] = Hash::make($request->password);
+        }
+
+        // Felhasználó frissítése
+        $user->update($updateData);
+
+        // Sikeres frissítés visszajelzése
+        return response()->json([
+            'message' => 'User updated successfully',
+            'user' => $user
+        ]);
+    }
+
+    /**
+     * Felhasználó törlése (csak admin)
+     * DELETE /api/users/{id}
+     * Middleware: auth:sanctum, admin
+     * 
+     * @param int $id - Felhasználó azonosító
+     * @return \Illuminate\Http\JsonResponse - Sikeres törlés vagy hiba
+     */
+    public function destroy($id)
+    {
+        // Felhasználó keresése ID alapján
+        $user = User::find($id);
+
+        // Ha nem található
+        if (!$user) {
+            return response()->json([
+                'message' => 'User not found'
+            ], 404);
+        }
+
+        // Felhasználó törlése
+        // FONTOS: A cascade delete miatt a kapcsolódó wishlist bejegyzések is törlődnek
+        $user->delete();
+
+        // Sikeres törlés visszajelzése
+        return response()->json([
+            'message' => 'User deleted successfully'
+        ]);
+    }
+}
 ```
 
 ---
@@ -1524,63 +2158,7 @@ A tesztek külön adatbázist használnak (memory vagy sqlite), ezért nem befol
 | GET | /admin/users/{userId}/wishlists | Admin | 200 OK, 403 Forbidden | Felhasználó kívánságlistája (admin) |
 
 ---
-
-## VIII. Postman Teszt Kollekció
-
-### Környezeti Változók
-```json
-{
-  "base_url": "http://127.0.0.1:8000/api",
-  "base_url_xampp": "http://127.0.0.1/wishlist_auth/public/api", 
-  "token": "",
-  "admin_token": ""
-}
-```
-
-### Teszt Sorrend (User Flow)
-
-1. **POST** `/register` - Felhasználó regisztrálása
-2. **POST** `/login` - Bejelentkezés (token mentése)
-3. **GET** `/me` - Saját profil ellenőrzése
-4. **GET** `/products` - Termékek böngészése
-5. **GET** `/products/1` - Adott termék részletei
-6. **POST** `/wishlists` - Termék hozzáadása kívánságlistához
-   ```json
-   {
-     "product_id": 1
-   }
-   ```
-7. **GET** `/wishlists` - Saját kívánságlista megtekintése
-8. **GET** `/wishlists/1` - Kívánságlista elem részletei
-9. **DELETE** `/wishlists/1` - Termék eltávolítása kívánságlistából
-10. **POST** `/logout` - Kijelentkezés
-
-### Admin Teszt Sorrend
-
-1. **POST** `/login` - Admin bejelentkezés
-   ```json
-   {
-     "email": "admin@example.com",
-     "password": "password"
-   }
-   ```
-2. **GET** `/users` - Összes felhasználó listázása
-3. **POST** `/products` - Új termék létrehozása
-   ```json
-   {
-     "name": "Test Product",
-     "category": "Test Category", 
-     "price": 99.99,
-     "stock": 10
-   }
-   ```
-4. **PUT** `/products/1` - Termék módosítása
-5. **GET** `/admin/wishlists` - Összes kívánságlista megtekintése
-6. **GET** `/admin/users/2/wishlists` - Felhasználó kívánságlistája
-
----
-
-## IX. Telepítési Útmutató
+## VIII. Útmutató
 
 ### Rendszerkövetelmények
 - PHP 8.2+
@@ -1588,7 +2166,7 @@ A tesztek külön adatbázist használnak (memory vagy sqlite), ezért nem befol
 - Composer 2.x
 - XAMPP vagy Laravel Valet/Herd
 
-### Telepítési Lépések (meglévő projekt)
+### Lépések (meglévő projekt)
 
 1. **Projekt klónozása**
 ```powershell
@@ -1668,118 +2246,3 @@ php artisan make:test ProductApiTest
 php artisan make:test UserApiTest
 php artisan make:test WishlistApiTest
 ```
-
-### Fejlesztői Fiókok
-
-A seeding után elérhető fiókok:
-
-- **Admin:** admin@example.com / password  
-- **User 1:** john@example.com / password
-- **User 2:** jane@example.com / password
-- **Factory Users:** további 7 generált felhasználó / password
-
----
-
-## X. Hibaelhárítás
-
-### Gyakori Hibák
-
-1. **Token hibák (401 Unauthorized)**
-   ```
-   Megoldás:
-   - Ellenőrizd a token helyességét
-   - Győződj meg róla, hogy a Bearer prefix megvan
-   - Token lejárt: jelentkezz be újra
-   ```
-
-2. **Admin jogosultság hibák (403 Forbidden)**
-   ```
-   Megoldás:
-   - Ellenőrizd, hogy admin felhasználóval vagy bejelentkezve
-   - Middleware konfiguráció ellenőrzése
-   - is_admin mező értékének ellenőrzése az adatbázisban
-   ```
-
-3. **CORS hibák**
-   ```
-   Megoldás:
-   - config/cors.php beállítások ellenőrzése
-   - Sanctum middleware konfigurációja
-   - Böngésző fejlesztői konzol ellenőrzése
-   ```
-
-4. **Adatbázis kapcsolat hibák**
-   ```
-   Megoldás:
-   - .env fájl adatbázis beállításait
-   - MySQL/MariaDB szerver futása
-   - Adatbázis létezik-e (wishlists)
-   - php artisan config:cache
-   ```
-
-5. **Validációs hibák (422 Unprocessable Entity)**
-   ```
-   Megoldás:
-   - Kérés formátum ellenőrzése (JSON)
-   - Kötelező mezők megadása
-   - Egyedi megszorítások (email, user_id+product_id)
-   ```
-
-6. **Duplikált kívánságlista elem (409 Conflict)**
-   ```
-   Ez normális viselkedés - egy felhasználó nem adhatja hozzá 
-   kétszer ugyanazt a terméket a kívánságlistájához.
-   ```
-
-### Debug Módok
-
-1. **Laravel Debug**
-   ```
-   .env fájlban: APP_DEBUG=true
-   APP_LOG_LEVEL=debug
-   ```
-
-2. **Query Log**
-   ```php
-   DB::enableQueryLog();
-   // API hívás
-   dd(DB::getQueryLog());
-   ```
-
-3. **API Válasz Debug**
-   ```
-   Postman Console vagy Network tab használata
-   HTTP status kódok és response body ellenőrzése
-   ```
-
----
-
-## XI. További Fejlesztési Lehetőségek
-
-### Funkcionális Bővítések
-
-1. **Termék értékelések és vélemények**
-2. **Kedvenc kategóriák**
-3. **Kívánságlista megosztása más felhasználókkal**
-4. **Email értesítések ár változáskor**
-5. **Termék képek feltöltése**
-6. **Kosár funkcionalitás**
-7. **Rendelés kezelés**
-
-### Technikai Fejlesztések
-
-1. **API verziókezelés (v1, v2)**
-2. **Rate limiting**
-3. **Cache implementáció (Redis)**
-4. **Queue-k használata email-ek küldésére**
-5. **API dokumentáció generálás (Swagger/OpenAPI)**
-6. **Elasticsearch termék kereséshez**
-7. **WebSocket real-time értesítésekhez**
-
----
-
-## Konklúzió
-
-Ez a wishlist API teljes körű megoldást nyújt termékek és kívánságlisták kezelésére. Az API REST elveket követ, biztonságos Sanctum autentikációt használ, admin és felhasználói jogosultságokat kezel, és átfogó tesztelést biztosít. 
-
-A dokumentáció minden szükséges információt tartalmaz a fejlesztéshez, telepítéshez és használathoz. A projekt könnyen bővíthető újabb funkciókkal és testreszabható különböző üzleti igények szerint.
