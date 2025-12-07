@@ -1654,7 +1654,7 @@ class UserController extends Controller
 ---
 
 ## V. API Végpontok Részletes Dokumentációja
-
+<img width="304" height="760" alt="image" src="https://github.com/user-attachments/assets/0c4fc639-553a-48f9-920b-9f3addb532a6" />
 ### Általános Információk
 
 **Content-Type:** `application/json`
@@ -1717,6 +1717,9 @@ Authorization: Bearer {token}
 
 #### POST /login
 Bejelentkezés e-mail címmel és jelszóval.
+
+<img width="707" height="286" alt="image" src="https://github.com/user-attachments/assets/6b3faebc-3c16-4aab-9281-4fbaa8f8c9ad" />
+
 
 **Kérés törzse:**
 ```json
@@ -1859,6 +1862,9 @@ Saját kívánságlista lekérése.
 
 #### POST /wishlists
 Termék hozzáadása a kívánságlistához.
+
+<img width="538" height="291" alt="image" src="https://github.com/user-attachments/assets/5120b5a1-bfd4-48e6-97fa-63d4f380239c" />
+
 
 **Kérés törzse:**
 ```json
