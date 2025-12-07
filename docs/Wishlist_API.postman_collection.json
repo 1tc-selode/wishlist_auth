@@ -1,269 +1,276 @@
 {
 	"info": {
-		"_postman_id": "wishlist-api-collection",
-		"name": "Wishlist API",
-		"description": "API végpontok a Wishlist alkalmazáshoz",
+		"_postman_id": "wishlist-api-collection-2025",
+		"name": "Wishlist REST API - Complete Collection",
+		"description": "Teljes API végpontok a Wishlist alkalmazáshoz - Laravel 12 + Sanctum\n\nBase URLs:\n- XAMPP: http://127.0.0.1/wishlist_auth/public/api\n- Laravel serve: http://127.0.0.1:8000/api",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
 		{
 			"key": "base_url",
-			"value": "http://localhost/wishlists/public/api",
+			"value": "http://127.0.0.1:8000/api",
+			"type": "string"
+		},
+		{
+			"key": "base_url_xampp",
+			"value": "http://127.0.0.1/wishlist_auth/public/api",
 			"type": "string"
 		},
 		{
 			"key": "token",
 			"value": "",
 			"type": "string"
+		},
+		{
+			"key": "admin_token",
+			"value": "",
+			"type": "string"
 		}
 	],
 	"item": [
 		{
-			"name": "Authentication",
+			"name": "1. Authentication",
+			"description": "Autentikációs végpontok - regisztráció, bejelentkezés, kijelentkezés",
 			"item": [
 				{
-					"name": "Register",
+					"name": "Register User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    pm.test(\"User registered successfully\", function () {",
+									"        var jsonData = pm.response.json();",
+									"        pm.expect(jsonData.message).to.eql(\"User registered successfully. Please login.\");",
+									"        pm.expect(jsonData.user).to.have.property('id');",
+									"        pm.expect(jsonData.user).to.have.property('email');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
 					"request": {
 						"method": "POST",
 						"header": [
 							{
 								"key": "Content-Type",
 								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
 							}
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"name\": \"New User\",\n  \"email\": \"newuser@example.com\",\n  \"password\": \"password\",\n  \"password_confirmation\": \"password\"\n}"
+							"raw": "{\n  \"name\": \"Test User\",\n  \"email\": \"testuser@example.com\",\n  \"password\": \"password123\",\n  \"password_confirmation\": \"password123\",\n  \"is_admin\": false\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/register",
 							"host": ["{{base_url}}"],
 							"path": ["register"]
+						},
+						"description": "Új felhasználó regisztrálása. A jelszó minimum 8 karakter és megerősítés szükséges."
+					},
+					"response": []
+				},
+				{
+					"name": "Login User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set(\"token\", jsonData.access_token);",
+									"    pm.test(\"Login successful and token saved\", function () {",
+									"        pm.expect(jsonData.access_token).to.be.a('string');",
+									"        pm.expect(jsonData.token_type).to.eql('Bearer');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
 						}
-					}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"password\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/login",
+							"host": ["{{base_url}}"],
+							"path": ["login"]
+						},
+						"description": "Bejelentkezés email és jelszóval. Válaszban API token érkezik."
+					},
+					"response": []
 				},
 				{
 					"name": "Login Admin",
 					"event": [
 						{
-							"name": "Get My Wishlists",
-							"request": {
-								"method": "GET",
-								"header": [
-									{
-										"key": "Authorization",
-										"value": "Bearer {{token}}"
-									}
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set(\"admin_token\", jsonData.access_token);",
+									"    pm.test(\"Admin login successful\", function () {",
+									"        pm.expect(jsonData.user.is_admin).to.eql(true);",
+									"    });",
+									"}"
 								],
-								"url": {
-									"raw": "{{base_url}}/wishlists",
-									"host": ["{{base_url}}"],
-									"path": ["wishlists"]
-								}
-							}
-						},
-						{
-							"name": "Add Product to Wishlist",
-							"request": {
-								"method": "POST",
-								"header": [
-									{
-										"key": "Authorization",
-										"value": "Bearer {{token}}"
-									},
-									{
-										"key": "Content-Type",
-										"value": "application/json"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n  \"product_id\": 1\n}"
-								},
-								"url": {
-									"raw": "{{base_url}}/wishlists",
-									"host": ["{{base_url}}"],
-									"path": ["wishlists"]
-								}
-							}
-						},
-						{
-							"name": "Remove from Wishlist",
-							"request": {
-								"method": "DELETE",
-								"header": [
-									{
-										"key": "Authorization",
-										"value": "Bearer {{token}}"
-									}
-								],
-								"url": {
-									"raw": "{{base_url}}/wishlists/1",
-									"host": ["{{base_url}}"],
-									"path": ["wishlists", "1"]
-								}
-							}
-						},
-						{
-							"name": "Get All Wishlists (Admin)",
-							"request": {
-								"method": "GET",
-								"header": [
-									{
-										"key": "Authorization",
-										"value": "Bearer {{token}}"
-									}
-								],
-								"url": {
-									"raw": "{{base_url}}/admin/wishlists",
-									"host": ["{{base_url}}"],
-									"path": ["admin", "wishlists"]
-								}
-							}
-						},
-						{
-							"name": "Get User's Wishlist (Admin)",
-							"request": {
-								"method": "GET",
-								"header": [
-									{
-										"key": "Authorization",
-										"value": "Bearer {{token}}"
-									}
-								],
-								"url": {
-									"raw": "{{base_url}}/admin/users/2/wishlists",
-									"host": ["{{base_url}}"],
-									"path": ["admin", "users", "2", "wishlists"]
-								}
+								"type": "text/javascript"
 							}
 						}
-						}
-					]
-					"name": "Get Products by Category",
+					],
 					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/products?category=Electronics",
-							"host": ["{{base_url}}"],
-							"path": ["products"],
-							"query": [
-								{
-									"key": "category",
-									"value": "Electronics"
-								}
-							]
-						}
-					}
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"password\"\n}"
 						},
+						"url": {
+							"raw": "{{base_url}}/login",
+							"host": ["{{base_url}}"],
+							"path": ["login"]
+						},
+						"description": "Admin felhasználó bejelentkezése (admin@example.com / password)"
+					},
+					"response": []
+				},
 				{
-					"name": "Search Products",
+					"name": "Get My Profile",
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
 						"url": {
-							"raw": "{{base_url}}/products?search=laptop",
+							"raw": "{{base_url}}/me",
 							"host": ["{{base_url}}"],
-							"path": ["products"],
-							"query": [
-								{
-									"key": "search",
-									"value": "laptop"
-								}
-							]
-						}
-					}
+							"path": ["me"]
+						},
+						"description": "Bejelentkezett felhasználó adatainak lekérése"
+					},
+					"response": []
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/logout",
+							"host": ["{{base_url}}"],
+							"path": ["logout"]
+						},
+						"description": "Kijelentkezés - aktuális token törlése"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. Products (Public)",
+			"description": "Termékek lekérése - publikus végpontok, autentikáció nélkül",
+			"item": [
+				{
+					"name": "Get All Products",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/products",
+							"host": ["{{base_url}}"],
+							"path": ["products"]
+						},
+						"description": "Összes termék listázása - publikus, token nélkül"
+					},
+					"response": []
 				},
 				{
 					"name": "Get Product by ID",
 					"request": {
 						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/products/1",
-							"host": ["{{base_url}}"],
-							"path": ["products", "1"]
-						}
-					}
-				},
-				{
-					"name": "Create Product (Admin)",
-					"request": {
-						"method": "POST",
 						"header": [
 							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Content-Type",
+								"key": "Accept",
 								"value": "application/json"
 							}
 						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"name\": \"New Test Product\",\n  \"category\": \"Electronics\",\n  \"price\": 499.99,\n  \"stock\": 25\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/products",
-							"host": ["{{base_url}}"],
-							"path": ["products"]
-						}
-					}
-				},
-				{
-					"name": "Update Product (Admin)",
-					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"name\": \"Updated Product Name\",\n  \"price\": 599.99,\n  \"stock\": 30\n}"
-						},
 						"url": {
 							"raw": "{{base_url}}/products/1",
 							"host": ["{{base_url}}"],
 							"path": ["products", "1"]
-						}
-					}
-				},
-				{
-					"name": "Delete Product (Admin)",
-					"request": {
-						"method": "DELETE",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/products/1",
-							"host": ["{{base_url}}"],
-							"path": ["products", "1"]
-						}
-					}
+						},
+						"description": "Adott termék részleteinek lekérése ID alapján"
+					},
+					"response": []
 				}
 			]
 		},
 		{
-			"name": "Wishlists",
+			"name": "3. Wishlist (User)",
+			"description": "Kívánságlista kezelés - autentikált felhasználóknak",
 			"item": [
 				{
 					"name": "Get My Wishlists",
 					"request": {
 						"method": "GET",
 						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
 							{
 								"key": "Authorization",
 								"value": "Bearer {{token}}"
@@ -273,8 +280,10 @@
 							"raw": "{{base_url}}/wishlists",
 							"host": ["{{base_url}}"],
 							"path": ["wishlists"]
-						}
-					}
+						},
+						"description": "Saját kívánságlista lekérése termék adatokkal"
+					},
+					"response": []
 				},
 				{
 					"name": "Add Product to Wishlist",
@@ -282,12 +291,16 @@
 						"method": "POST",
 						"header": [
 							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
 								"key": "Content-Type",
 								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
 							}
 						],
 						"body": {
@@ -298,8 +311,10 @@
 							"raw": "{{base_url}}/wishlists",
 							"host": ["{{base_url}}"],
 							"path": ["wishlists"]
-						}
-					}
+						},
+						"description": "Termék hozzáadása a kívánságlistához. Minden termék csak egyszer adható hozzá."
+					},
+					"response": []
 				},
 				{
 					"name": "Get Wishlist Item",
@@ -307,6 +322,10 @@
 						"method": "GET",
 						"header": [
 							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
 								"key": "Authorization",
 								"value": "Bearer {{token}}"
 							}
@@ -315,8 +334,10 @@
 							"raw": "{{base_url}}/wishlists/1",
 							"host": ["{{base_url}}"],
 							"path": ["wishlists", "1"]
-						}
-					}
+						},
+						"description": "Adott wishlist bejegyzés megtekintése ID alapján"
+					},
+					"response": []
 				},
 				{
 					"name": "Remove from Wishlist",
@@ -324,6 +345,10 @@
 						"method": "DELETE",
 						"header": [
 							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
 								"key": "Authorization",
 								"value": "Bearer {{token}}"
 							}
@@ -332,48 +357,107 @@
 							"raw": "{{base_url}}/wishlists/1",
 							"host": ["{{base_url}}"],
 							"path": ["wishlists", "1"]
-						}
-					}
-				},
-				{
-					"name": "Get All Wishlists (Admin)",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/admin/wishlists",
-							"host": ["{{base_url}}"],
-							"path": ["admin", "wishlists"]
-						}
-					}
-				},
-				{
-					"name": "Get User's Wishlist (Admin)",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/admin/users/2/wishlists",
-							"host": ["{{base_url}}"],
-							"path": ["admin", "users", "2", "wishlists"]
-						}
-					}
+						},
+						"description": "Termék eltávolítása a kívánságlistából"
+					},
+					"response": []
 				}
-				},
 			]
 		},
 		{
-			"name": "Users (Admin)",
+			"name": "4. Products (Admin)",
+			"description": "Termékkezelés - csak admin jogosultsággal",
+			"item": [
+				{
+					"name": "Create Product",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Test Product\",\n  \"category\": \"Electronics\",\n  \"price\": 299.99,\n  \"stock\": 50\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/products",
+							"host": ["{{base_url}}"],
+							"path": ["products"]
+						},
+						"description": "Új termék létrehozása (csak admin)"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Product",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Updated Product Name\",\n  \"price\": 399.99,\n  \"stock\": 25\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/products/1",
+							"host": ["{{base_url}}"],
+							"path": ["products", "1"]
+						},
+						"description": "Termék módosítása (csak admin). Csak a megadott mezők frissülnek."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Product",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/products/1",
+							"host": ["{{base_url}}"],
+							"path": ["products", "1"]
+						},
+						"description": "Termék törlése (csak admin). A kapcsolódó wishlist bejegyzések is törlődnek (cascade)."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "5. Users (Admin)",
+			"description": "Felhasználó kezelés - csak admin jogosultsággal",
 			"item": [
 				{
 					"name": "Get All Users",
@@ -381,16 +465,22 @@
 						"method": "GET",
 						"header": [
 							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
 								"key": "Authorization",
-								"value": "Bearer {{token}}"
+								"value": "Bearer {{admin_token}}"
 							}
 						],
 						"url": {
 							"raw": "{{base_url}}/users",
 							"host": ["{{base_url}}"],
 							"path": ["users"]
-						}
-					}
+						},
+						"description": "Összes felhasználó listázása (csak admin)"
+					},
+					"response": []
 				},
 				{
 					"name": "Get User by ID",
@@ -398,16 +488,22 @@
 						"method": "GET",
 						"header": [
 							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
 								"key": "Authorization",
-								"value": "Bearer {{token}}"
+								"value": "Bearer {{admin_token}}"
 							}
 						],
 						"url": {
-							"raw": "{{base_url}}/users/1",
+							"raw": "{{base_url}}/users/2",
 							"host": ["{{base_url}}"],
-							"path": ["users", "1"]
-						}
-					}
+							"path": ["users", "2"]
+						},
+						"description": "Adott felhasználó adatainak lekérése (csak admin)"
+					},
+					"response": []
 				},
 				{
 					"name": "Update User",
@@ -415,24 +511,30 @@
 						"method": "PUT",
 						"header": [
 							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							},
-							{
 								"key": "Content-Type",
 								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
 							}
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"name\": \"Updated User Name\",\n  \"email\": \"updated@example.com\",\n  \"is_admin\": false\n}"
+							"raw": "{\n  \"name\": \"Updated Name\",\n  \"email\": \"updated@example.com\",\n  \"is_admin\": false\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/users/2",
 							"host": ["{{base_url}}"],
 							"path": ["users", "2"]
-						}
-					}
+						},
+						"description": "Felhasználó adatainak módosítása (csak admin)"
+					},
+					"response": []
 				},
 				{
 					"name": "Delete User",
@@ -440,16 +542,74 @@
 						"method": "DELETE",
 						"header": [
 							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
 								"key": "Authorization",
-								"value": "Bearer {{token}}"
+								"value": "Bearer {{admin_token}}"
 							}
 						],
 						"url": {
 							"raw": "{{base_url}}/users/2",
 							"host": ["{{base_url}}"],
 							"path": ["users", "2"]
-						}
-					}
+						},
+						"description": "Felhasználó törlése (csak admin). A kapcsolódó wishlistek is törlődnek."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "6. Wishlists (Admin)",
+			"description": "Kívánságlista admin funkciók",
+			"item": [
+				{
+					"name": "Get All Wishlists",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/admin/wishlists",
+							"host": ["{{base_url}}"],
+							"path": ["admin", "wishlists"]
+						},
+						"description": "Összes felhasználó összes wishlistjének lekérése (csak admin)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get User's Wishlists",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/admin/users/2/wishlists",
+							"host": ["{{base_url}}"],
+							"path": ["admin", "users", "2", "wishlists"]
+						},
+						"description": "Adott felhasználó kívánságlistájának lekérése (csak admin)"
+					},
+					"response": []
 				}
 			]
 		}
